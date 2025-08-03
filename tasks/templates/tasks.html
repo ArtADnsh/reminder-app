@@ -1,0 +1,236 @@
+  <!-- tasks/templates/tasks.html -->
+  <!DOCTYPE html>
+  <html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Your Tasks</title>
+    <style>
+      body { font-family: Arial, sans-serif; max-width: 600px; margin: 2em auto; padding: 0 1em; background: #f5f5f5; }
+      h1 { text-align: center; }
+      #logout-btn { float: right; }
+      #add-task-form {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: .5em;
+        margin-bottom: 1em;
+        background: #fff;
+        padding: 1em;
+        border-radius: 5px;
+      }
+      #add-task-form input,
+      #add-task-form textarea,
+      #add-task-form button,
+      #add-task-form label { width: 100%; }
+      #add-task-form textarea { resize: vertical; }
+      ul { list-style: none; padding: 0; }
+      li {
+        background: #fff;
+        display: grid;
+        grid-template-columns: auto 1fr auto;
+        align-items: center;
+        gap: .5em;
+        padding: .5em 1em;
+        margin-bottom: .5em;
+        border-radius: 5px;
+      }
+      li.completed span.title { text-decoration: line-through; color: #888; }
+      .meta { font-size: .85em; color: #555; }
+      button { padding: .4em .8em; cursor: pointer; }
+    </style>
+  </head>
+  <body>
+    <button id="logout-btn">Logout</button>
+    <h1>Your Tasks</h1>
+
+    <form id="add-task-form">
+      <input type="text" id="task-title" placeholder="Task title" required>
+      <textarea id="task-desc" placeholder="Description (optional)" rows="2"></textarea>
+
+      <label>
+        <input type="checkbox" id="task-completed">
+        Completed
+      </label>
+
+      <label>
+        First reminder:
+        <input type="datetime-local" id="task-first-reminder">
+      </label>
+
+      <label>
+        Reminder count:
+        <input type="number" id="task-reminder-count" min="1" value="1">
+      </label>
+
+      <label>
+        Interval (minutes):
+        <input type="number" id="task-reminder-interval" min="0" value="0">
+      </label>
+
+      <button type="submit">Add Task</button>
+    </form>
+
+    <ul id="tasks-list"></ul>
+
+    <script>
+      // Inject Bearer token
+      (function() {
+        const origFetch = window.fetch;
+        window.fetch = (input, init = {}) => {
+          const token = localStorage.getItem('access_token');
+          init.headers = init.headers || {};
+          if (token) init.headers['Authorization'] = `Bearer ${token}`;
+          return origFetch(input, init);
+        };
+      })();
+
+      // Load tasks (همه = فقط مال کاربر جاری طبق بک‌اند)
+      async function fetchTasks() {
+        const res = await fetch('/api/tasks/', { method: 'GET' });
+        if (res.ok) {
+          renderTasks(await res.json());
+        } else if (res.status === 401) {
+          alert('Session expired. Please log in again.');
+          logout();
+        } else {
+          console.error('Error loading tasks:', res.status, await res.text());
+        }
+      }
+
+      function renderTasks(tasks) {
+        const list = document.getElementById('tasks-list');
+        list.innerHTML = '';
+        tasks.forEach(task => {
+          const li = document.createElement('li');
+
+          // fallback: اگر به هر دلیل سرور هنوز completed برگرداند
+          const done = (task.is_done !== undefined) ? task.is_done : task.completed;
+
+          if (done) li.classList.add('completed');
+
+          const checkbox = document.createElement('input');
+          checkbox.type = 'checkbox';
+          checkbox.checked = done;
+          checkbox.addEventListener('change', () => {
+            toggleTaskCompletion(task.id, checkbox.checked);
+            // Optimistic UI
+            li.classList.toggle('completed', checkbox.checked);
+          });
+          li.append(checkbox);
+
+          const info = document.createElement('div');
+          const title = document.createElement('span');
+          title.textContent = task.title;
+          title.className = 'title';
+          info.appendChild(title);
+
+          if (task.description) {
+            const desc = document.createElement('div');
+            desc.textContent = task.description;
+            desc.className = 'meta';
+            info.appendChild(desc);
+          }
+
+          const meta = document.createElement('div');
+          meta.className = 'meta';
+          const parts = [];
+          if (task.first_reminder)
+            parts.push(`First: ${new Date(task.first_reminder).toLocaleString()}`);
+          if (task.repeat_reminder !== undefined)
+            parts.push(`Count: ${task.repeat_reminder}`);
+          if (task.time_between_reminders)
+            parts.push(`Every ${parseInterval(task.time_between_reminders)}`);
+          if (parts.length) {
+            meta.textContent = parts.join(' · ');
+            info.appendChild(meta);
+          }
+
+          li.append(info);
+
+          const delBtn = document.createElement('button');
+          delBtn.textContent = 'Delete';
+          delBtn.addEventListener('click', () => deleteTask(task.id));
+          li.append(delBtn);
+
+          list.appendChild(li);
+        });
+      }
+
+      function parseInterval(iso) {
+        if (typeof iso === 'number') {
+          return iso + 'm';  // فرض بر این است که اگر عدد باشد، این مقدار به دقیقه است
+        }
+
+        if (typeof iso === 'string') {
+          const m = iso.match(/PT(\d+)M/);  // برای دقیقه
+          if (m) return m[1] + 'm';
+
+          const h = iso.match(/PT(\d+)H/);  // برای ساعت
+          if (h) return h[1] + 'h';
+        }
+
+        return iso || 'Invalid Interval';  // اگر داده موجود نبود، یک مقدار پیش‌فرض نمایش می‌دهیم
+      }
+
+
+      async function addTask(e) {
+        e.preventDefault();
+        const body = {
+          title: document.getElementById('task-title').value.trim(),
+          description: document.getElementById('task-desc').value.trim(),
+          is_done: document.getElementById('task-completed').checked,
+          first_reminder: document.getElementById('task-first-reminder').value || null,
+          repeat_reminder: +document.getElementById('task-reminder-count').value,
+          time_between_reminders: document.getElementById('task-reminder-interval').value
+            ? parseInt(document.getElementById('task-reminder-interval').value, 10)
+            : null
+        };
+
+        if (!body.description) delete body.description;
+        if (!body.first_reminder) delete body.first_reminder;
+        if (body.time_between_reminders === null) delete body.time_between_reminders;
+
+        const res = await fetch('/api/tasks/', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body)
+        });
+        if (res.ok) {
+          e.target.reset();
+          fetchTasks();
+        } else {
+          console.error('Error creating task:', res.status, await res.text());
+        }
+      }
+
+      async function toggleTaskCompletion(id, completed) {
+        const res = await fetch(`/api/tasks/${id}/`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ is_done: completed })
+        });
+        if (!res.ok) {
+          console.error('Error updating task:', res.status, await res.text());
+          // برگشت به حالت قبلی اگر خواستی (fetchTasks برای همگام‌سازی)
+          fetchTasks();
+        }
+      }
+
+      async function deleteTask(id) {
+        const res = await fetch(`/api/tasks/${id}/`, { method: 'DELETE' });
+        if (res.ok) fetchTasks();
+        else console.error('Error deleting task:', res.status, await res.text());
+      }
+
+      function logout() {
+        localStorage.removeItem('access_token');
+        localStorage.removeItem('refresh_token');
+        window.location.href = '/tasks/login/';
+      }
+      document.getElementById('logout-btn').addEventListener('click', logout);
+
+      fetchTasks();
+      document.getElementById('add-task-form').addEventListener('submit', addTask);
+    </script>
+  </body>
+  </html>

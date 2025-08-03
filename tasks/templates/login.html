@@ -1,0 +1,43 @@
+<!-- tasks/templates/login.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Login</title>
+</head>
+<body>
+  <h1>Login</h1>
+  <form id="login-form">
+    <input type="text" id="username" placeholder="Username" required><br>
+    <input type="password" id="password" placeholder="Password" required><br>
+    <button type="submit">Login</button>
+  </form>
+  <p id="error" style="color: red;"></p>
+  <p>Don't have an account? <a href="{% url 'tasks:signup' %}">Sign up</a></p>
+
+  <script>
+    document.getElementById('login-form').addEventListener('submit', async e => {
+      e.preventDefault();
+      const u = document.getElementById('username').value;
+      const p = document.getElementById('password').value;
+      const res = await fetch('/api/token/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: u, password: p })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        // ذخیره توکن‌ها
+        localStorage.setItem('access_token',  data.access);
+        localStorage.setItem('refresh_token', data.refresh);
+        // می‌ریم صفحهٔ تسک‌ها
+        window.location.href = '/tasks/';
+      } else {
+        document.getElementById('error').textContent =
+          data.detail || 'Login failed';
+      }
+    });
+  </script>
+</body>
+</html>
