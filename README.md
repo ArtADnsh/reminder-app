@@ -27,3 +27,15 @@ A simple, extensible Django-based reminder application with REST API support and
 ```bash
 git clone https://github.com/ArtADnsh/reminder-app.git
 cd reminder-app
+```
+### 2. install requirements
+
+```
+pip install requirements.txt
+```
+### 3. install redis and use python 3.12
+
+```
+currently there's no redis version for newer pythons
+```
+### 4. don't forget to make your own .ven file
