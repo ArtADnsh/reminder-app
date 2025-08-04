@@ -36,6 +36,7 @@ pip install requirements.txt
 ### 3. install redis and use python 3.12
 
 currently there's no redis verion for newer pythons
+
 [reddis for windows(unofficial)](https://github.com/redis-windows/redis-windows), 
 [reddis for linux](https://redis.io/docs/latest/operate/oss_and_stack/install/archive/install-redis/install-redis-on-linux/)
 ### 4. don't forget to make your own .ven file
