@@ -40,6 +40,8 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
 
+    'corsheaders',
+
     'django_celery_beat',
 
     'rest_framework',
@@ -49,6 +51,7 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -174,3 +177,6 @@ CELERY_BEAT_SCHEDULE = {
 }
 
 CELERY_IMPORTS = ('tasks.tasks',)
+
+#production
+CORS_ALLOW_ALL_ORIGINS = True
