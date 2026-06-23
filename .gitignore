@@ -1,0 +1,14 @@
+# Python & Django
+__pycache__/
+*.py[cod]
+.venv/
+env/
+db.sqlite3
+
+# Environment variables
+.env
+.idea
+
+# Celery & Redis
+celerybeat-schedule
+*.pid
