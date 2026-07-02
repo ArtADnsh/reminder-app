@@ -8,6 +8,8 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
+from TODOList.celery import app as celery_app
+
 from django.contrib.auth import get_user_model
 
 from .models import Task
@@ -36,6 +38,21 @@ class TaskViewSet(ModelViewSet):
 
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
+
+    # ------------ بخش برای Revoke کردن ------------
+
+    def perform_update(self, serializer):
+        instance = serializer.save()
+        # اگر کاربر تسک را به عنوان انجام‌شده تیک زد، یادآور لغو شود
+        if instance.is_done:
+            celery_task_id = f"task_{instance.id}"
+            celery_app.control.revoke(celery_task_id, terminate=True)
+
+    def perform_destroy(self, instance):
+        # قبل از حذف کردن تسک از دیتابیس، پردازش آن را در سلری لغو کن
+        celery_task_id = f"task_{instance.id}"
+        celery_app.control.revoke(celery_task_id, terminate=True)
+        instance.delete()
 
 
 # ==========================================
