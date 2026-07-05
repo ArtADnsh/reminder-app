@@ -38,9 +38,8 @@ export default function Signup() {
 
       // ۲. لاگین خودکار بلافاصله پس از ثبت‌نام
       const loginRes = await axiosInstance.post('auth/login/', { username, password });
-      const { access, refresh, username: loggedInUser } = loginRes.data;
-
-      login({ username: loggedInUser }, { access, refresh });
+      
+      login(loginRes.data); 
       navigate('/');
     } catch (err) {
       // استخراج پیام خطای جنگو (مثلا: "نام کاربری قبلا استفاده شده است")

@@ -1,5 +1,5 @@
 import { createContext, useState, useEffect } from 'react';
-import { jwtDecode } from 'jwt-decode';
+import axiosInstance from '../api/axiosInstance'; // مطمئن شو این مسیر دقیقه
 
 export const AuthContext = createContext(null);
 
@@ -9,21 +9,11 @@ export const AuthProvider = ({ children }) => {
 
   useEffect(() => {
     const initializeAuth = () => {
+      const storedUser = localStorage.getItem('user');
       const token = localStorage.getItem('access_token');
-      if (token) {
-        try {
-          const decoded = jwtDecode(token);
-          // بررسی انقضای توکن (زمان توکن در JWT به ثانیه است)
-          if (decoded.exp * 1000 < Date.now()) {
-            logout();
-          } else {
-            // در صورتی که توکن معتبر بود، اطلاعات کاربر را در State قرار می‌دهیم
-            setUser({ username: localStorage.getItem('username') });
-          }
-        } catch (error) {
-          console.error("توکن نامعتبر است:", error);
-          logout();
-        }
+
+      if (storedUser && token) {
+        setUser(JSON.parse(storedUser));
       }
       setLoading(false);
     };
@@ -31,18 +21,34 @@ export const AuthProvider = ({ children }) => {
     initializeAuth();
   }, []);
 
-  const login = (userData, tokens) => {
-    localStorage.setItem('access_token', tokens.access);
-    localStorage.setItem('refresh_token', tokens.refresh);
-    localStorage.setItem('username', userData.username);
+  const login = (data) => {
+    localStorage.setItem('access_token', data.access);
+    localStorage.setItem('refresh_token', data.refresh);
+
+    const userData = {
+      id: data.user_id,
+      username: data.username,
+      email: data.email,
+    };
+
+    localStorage.setItem('user', JSON.stringify(userData));
     setUser(userData);
   };
 
-  const logout = () => {
-    localStorage.removeItem('access_token');
-    localStorage.removeItem('refresh_token');
-    localStorage.removeItem('username');
-    setUser(null);
+  const logout = async () => {
+    try {
+      const refresh = localStorage.getItem('refresh_token');
+      if (refresh) {
+        await axiosInstance.post('auth/logout/', { refresh });
+      }
+    } catch (error) {
+      console.error("Failed to revoke token on server:", error);
+    } finally {
+      localStorage.removeItem('access_token');
+      localStorage.removeItem('refresh_token');
+      localStorage.removeItem('user');
+      setUser(null);
+    }
   };
 
   return (

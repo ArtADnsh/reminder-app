@@ -2,6 +2,7 @@ import { useState, useContext } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
 import axiosInstance from '../api/axiosInstance';
+import { toast } from 'react-toastify'; // اضافه شدن Toast
 
 export default function Login() {
   const [username, setUsername] = useState('');
@@ -17,19 +18,25 @@ export default function Login() {
     setError('');
 
     if (!username.trim() || !password.trim()) {
-      setError('پر کردن تمامی فیلدها الزامی است.');
+      const msg = 'پر کردن تمامی فیلدها الزامی است.';
+      setError(msg);
+      toast.warning(msg); // نمایش اخطار با Toast
       return;
     }
 
     setIsSubmitting(true);
     try {
       const response = await axiosInstance.post('auth/login/', { username, password });
-      const { access, refresh, username: loggedInUser } = response.data;
 
-      login({ username: loggedInUser }, { access, refresh });
-      navigate('/');
+      // در کانتکست جدید، کل دیتای دریافتی (توکن‌ها، آیدی، ایمیل و یوزرنیم) را یکجا می‌فرستیم
+      login(response.data);
+
+      toast.success(`خوش آمدی ${response.data.username}! 👋`); // پیام موفقیت جذاب
+      navigate('/'); // انتقال به داشبورد
     } catch (err) {
-      setError(err.response?.data?.detail || 'نام کاربری یا رمز عبور اشتباه است.');
+      const errorMessage = err.response?.data?.detail || 'نام کاربری یا رمز عبور اشتباه است.';
+      setError(errorMessage);
+      toast.error(errorMessage); // نمایش خطای سرور با Toast
     } finally {
       setIsSubmitting(false);
     }
@@ -94,7 +101,6 @@ export default function Login() {
           </button>
         </form>
 
-        {/* اضافه کردن لینک ثبت‌نام در انتهای فرم لاگین */}
         <p className="mt-8 text-sm text-center text-gray-600">
           حساب کاربری ندارید؟{' '}
           <Link to="/signup" className="font-bold transition-colors text-primary hover:text-blue-700 hover:underline">
