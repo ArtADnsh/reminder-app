@@ -1,3 +1,5 @@
+import logging
+
 from rest_framework.viewsets import ModelViewSet
 from rest_framework.generics import CreateAPIView
 from rest_framework.views import APIView
@@ -16,6 +18,20 @@ from .models import Task
 from .serializers import TaskSerializer, SignUpSerializer
 
 User = get_user_model()
+logger = logging.getLogger(__name__)
+
+
+def _revoke_celery_task(celery_task_id):
+    """Revoke a Celery task and log any broker errors."""
+    try:
+        celery_app.control.revoke(celery_task_id, terminate=True)
+    except Exception:
+        logger.error(
+            'Failed to revoke Celery task: celery_task_id=%s',
+            celery_task_id,
+            exc_info=True,
+        )
+        raise
 
 
 # ==========================================
@@ -37,22 +53,40 @@ class TaskViewSet(ModelViewSet):
         return qs.order_by('-id')
 
     def perform_create(self, serializer):
-        serializer.save(user=self.request.user)
+        instance = serializer.save(user=self.request.user)
+        logger.info(
+            'Task created: user_id=%s task_id=%s',
+            self.request.user.id,
+            instance.id,
+        )
 
     # ------------ بخش برای Revoke کردن ------------
 
     def perform_update(self, serializer):
         instance = serializer.save()
+        logger.info(
+            'Task updated: user_id=%s task_id=%s is_done=%s',
+            self.request.user.id,
+            instance.id,
+            instance.is_done,
+        )
         # اگر کاربر تسک را به عنوان انجام‌شده تیک زد، یادآور لغو شود
         if instance.is_done:
             celery_task_id = f"task_{instance.id}"
-            celery_app.control.revoke(celery_task_id, terminate=True)
+            _revoke_celery_task(celery_task_id)
 
     def perform_destroy(self, instance):
+        user_id = self.request.user.id
+        task_id = instance.id
         # قبل از حذف کردن تسک از دیتابیس، پردازش آن را در سلری لغو کن
-        celery_task_id = f"task_{instance.id}"
-        celery_app.control.revoke(celery_task_id, terminate=True)
+        celery_task_id = f"task_{task_id}"
+        _revoke_celery_task(celery_task_id)
         instance.delete()
+        logger.info(
+            'Task deleted: user_id=%s task_id=%s',
+            user_id,
+            task_id,
+        )
 
 
 # ==========================================
@@ -84,6 +118,14 @@ class SignUpView(CreateAPIView):
     permission_classes = [AllowAny]
     serializer_class = SignUpSerializer
 
+    def perform_create(self, serializer):
+        user = serializer.save()
+        logger.info(
+            'User signup successful: user_id=%s username=%s',
+            user.id,
+            user.username,
+        )
+
 
 class LoginView(TokenObtainPairView):
     """
@@ -92,6 +134,17 @@ class LoginView(TokenObtainPairView):
     """
     permission_classes = [AllowAny]
     serializer_class = CustomTokenObtainPairSerializer
+
+    def post(self, request, *args, **kwargs):
+        response = super().post(request, *args, **kwargs)
+        username = request.data.get('username', 'unknown')
+
+        if response.status_code == status.HTTP_200_OK:
+            logger.info('User login successful: username=%s', username)
+        else:
+            logger.warning('Failed login attempt: username=%s', username)
+
+        return response
 
 
 class LogoutView(APIView):

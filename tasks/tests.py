@@ -6,7 +6,6 @@ integration (mocked — no real Redis broker required).
 """
 
 from datetime import timedelta
-from io import StringIO
 from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
@@ -695,11 +694,13 @@ class CeleryTaskUnitTests(TestCase):
 
     def test_send_reminder_email_handles_missing_task(self):
         """Lines 47-48: DoesNotExist is caught gracefully."""
-        stdout = StringIO()
-        with patch('sys.stdout', stdout):
+        with self.assertLogs('tasks.tasks', level='ERROR') as log_context:
             send_reminder_email(999999)
 
-        self.assertIn('Task with ID 999999 does not exist', stdout.getvalue())
+        self.assertTrue(
+            any('999999' in message for message in log_context.output),
+            log_context.output,
+        )
 
     @patch('tasks.tasks.send_reminder_email.apply_async')
     def test_check_and_send_reminders_enqueues_due_tasks(self, mock_apply_async):

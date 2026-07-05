@@ -1,3 +1,5 @@
+import logging
+
 from celery import shared_task
 from django.core.mail import send_mail
 from datetime import timedelta
@@ -5,6 +7,8 @@ from django.utils import timezone
 from .models import Task
 from django.db.models.signals import post_save
 from django.dispatch import receiver
+
+logger = logging.getLogger(__name__)
 
 
 @receiver(post_save, sender=Task)
@@ -17,6 +21,8 @@ def schedule_first_reminder(sender, instance, created, **kwargs):
 
 @shared_task
 def send_reminder_email(task_id):
+    logger.info('Processing reminder email: task_id=%s', task_id)
+
     try:
         task = Task.objects.get(id=task_id)
 
@@ -27,7 +33,22 @@ def send_reminder_email(task_id):
                 subject = f'Task Reminder: {task.title}'
                 message = f'This is a reminder to complete your task: {task.title}'
 
-                send_mail(subject, message, 'artadnsh@gmail.com', [to_email])
+                try:
+                    send_mail(subject, message, 'artadnsh@gmail.com', [to_email])
+                except Exception:
+                    logger.error(
+                        'Failed to send reminder email: task_id=%s recipient=%s',
+                        task_id,
+                        to_email,
+                        exc_info=True,
+                    )
+                    raise
+
+                logger.info(
+                    'Reminder email sent successfully: task_id=%s recipient=%s',
+                    task_id,
+                    to_email,
+                )
 
                 task.sent_reminders += 1
                 task.save()
@@ -45,7 +66,11 @@ def send_reminder_email(task_id):
                 send_reminder_email.apply_async((task.id,), eta=next_reminder_time, task_id=celery_task_id)
 
     except Task.DoesNotExist:
-        print(f"Task with ID {task_id} does not exist.")
+        logger.error(
+            'Task not found for reminder processing: task_id=%s',
+            task_id,
+            exc_info=True,
+        )
 
 
 @shared_task
