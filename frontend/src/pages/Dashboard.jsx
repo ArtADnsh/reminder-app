@@ -9,22 +9,44 @@ export default function Dashboard() {
 
   // State های مربوط به مودال
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [modalKey, setModalKey] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // واکشی تسک‌ها
+  const openModal = () => {
+    setModalKey((key) => key + 1);
+    setIsModalOpen(true);
+  };
+
   const fetchTasks = async () => {
     try {
       const response = await axiosInstance.get('tasks/');
       setTasks(response.data);
     } catch (error) {
       console.error('خطا در بارگذاری یادآورها:', error);
+      toast.error('خطا در بارگذاری یادآورها. لطفا صفحه را رفرش کنید.');
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchTasks();
+    let cancelled = false;
+
+    axiosInstance.get('tasks/')
+      .then((response) => {
+        if (!cancelled) setTasks(response.data);
+      })
+      .catch((error) => {
+        if (!cancelled) {
+          console.error('خطا در بارگذاری یادآورها:', error);
+          toast.error('خطا در بارگذاری یادآورها. لطفا صفحه را رفرش کنید.');
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+
+    return () => { cancelled = true; };
   }, []);
 
 // هندل کردن ثبت تسک جدید با Payload هوشمند
@@ -119,7 +141,7 @@ export default function Dashboard() {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
         <h2 className="text-2xl font-bold text-gray-800">یادآورهای فعال</h2>
         <button
-          onClick={() => setIsModalOpen(true)}
+          onClick={openModal}
           className="px-5 py-2.5 bg-primary text-white font-bold rounded-lg shadow-md hover:bg-blue-600 transition-colors flex items-center gap-2"
         >
           <span className="text-xl leading-none">+</span> یادآور جدید
@@ -128,6 +150,7 @@ export default function Dashboard() {
 
       {/* مودال ساخت تسک */}
       <TaskModal
+        key={modalKey}
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         onSubmit={handleCreateTask}
@@ -143,7 +166,7 @@ export default function Dashboard() {
             اولین یادآور خود را ثبت کنید تا سیستم پردازش‌های Celery کار خود را آغاز کند.
           </p>
           <button
-            onClick={() => setIsModalOpen(true)}
+            onClick={openModal}
             className="px-6 py-2.5 border-2 border-primary text-primary font-bold rounded-lg hover:bg-blue-50 transition-colors"
           >
             ثبت اولین یادآور

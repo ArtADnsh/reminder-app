@@ -1,33 +1,31 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
+
+const initialFormState = {
+  title: '',
+  description: '',
+  first_reminder: '',
+  repeat_reminder: 1,
+  time_between_reminders: 0,
+};
 
 export default function TaskModal({ isOpen, onClose, onSubmit, isSubmitting }) {
-  // ساختار اولیه فرم
-  const initialFormState = {
-    title: '',
-    description: '',
-    first_reminder: '',
-    repeat_reminder: 1,
-    time_between_reminders: 0,
-  };
-
   const [formData, setFormData] = useState(initialFormState);
 
-  // هر بار که مودال باز می‌شود، فرم ریست شود
-  useEffect(() => {
-    if (isOpen) {
-      setFormData(initialFormState);
-    }
-  }, [isOpen]);
-
-  // اگر مودال بسته است، اصلاً چیزی رندر نشود
   if (!isOpen) return null;
 
-  // مدیریت هوشمند تغییرات تمام فیلدها
   const handleChange = (e) => {
-    const { name, value, type, checked } = e.target;
+    const { name, value } = e.target;
     setFormData((prev) => ({
       ...prev,
-    [name]: name === 'repeat_reminder' || name === 'time_between_reminders' ? parseInt(value) || 0 : value,    }));
+      [name]: name === 'repeat_reminder' || name === 'time_between_reminders'
+        ? parseInt(value) || 0
+        : value,
+    }));
+  };
+
+  const handleClose = () => {
+    setFormData(initialFormState);
+    onClose();
   };
 
   const handleSubmit = (e) => {
@@ -39,12 +37,12 @@ export default function TaskModal({ isOpen, onClose, onSubmit, isSubmitting }) {
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm transition-opacity">
       <div
         className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden animate-in fade-in zoom-in duration-200"
-        onClick={(e) => e.stopPropagation()} // جلوگیری از بسته شدن هنگام کلیک روی خود مودال
+        onClick={(e) => e.stopPropagation()}
       >
         <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
           <h3 className="text-lg font-bold text-gray-800">➕ ثبت یادآور جدید</h3>
           <button
-            onClick={onClose}
+            onClick={handleClose}
             className="text-gray-400 hover:text-red-500 transition-colors focus:outline-none"
           >
             <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -129,7 +127,7 @@ export default function TaskModal({ isOpen, onClose, onSubmit, isSubmitting }) {
           <div className="pt-4 flex gap-3">
             <button
               type="button"
-              onClick={onClose}
+              onClick={handleClose}
               className="flex-1 px-4 py-2.5 bg-gray-100 text-gray-700 font-bold rounded-lg hover:bg-gray-200 transition-colors"
             >
               انصراف

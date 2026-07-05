@@ -1,6 +1,6 @@
 import { useState, useContext } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { AuthContext } from '../context/AuthContext';
+import { AuthContext } from '../context/authContext';
 import axiosInstance from '../api/axiosInstance';
 import { toast } from 'react-toastify';
 
@@ -20,12 +20,17 @@ export default function Signup() {
     setError('');
 
     // اعتبارسنجی اولیه در سمت کلاینت
-    if (!username.trim() || !email.trim() || !password.trim() || !confirmPassword.trim()) {      setError('پر کردن تمامی فیلدها الزامی است.');
+    if (!username.trim() || !email.trim() || !password.trim() || !confirmPassword.trim()) {
+      const msg = 'پر کردن تمامی فیلدها الزامی است.';
+      setError(msg);
+      toast.warning(msg);
       return;
     }
 
     if (password !== confirmPassword) {
-      setError('رمز عبور و تکرار آن با هم مطابقت ندارند.');
+      const msg = 'رمز عبور و تکرار آن با هم مطابقت ندارند.';
+      setError(msg);
+      toast.warning(msg);
       return;
     }
 
@@ -48,6 +53,7 @@ export default function Signup() {
         err.response?.data?.detail ||
         'خطایی در ثبت‌نام رخ داد. لطفا نام کاربری دیگری امتحان کنید.';
       setError(errorMsg);
+      toast.error(errorMsg);
     } finally {
       setIsSubmitting(false);
     }

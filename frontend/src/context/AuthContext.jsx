@@ -1,25 +1,40 @@
-import { createContext, useState, useEffect } from 'react';
-import axiosInstance from '../api/axiosInstance'; // مطمئن شو این مسیر دقیقه
+import { useState } from 'react';
+import { jwtDecode } from 'jwt-decode';
+import axiosInstance from '../api/axiosInstance';
+import { AuthContext } from './authContext';
 
-export const AuthContext = createContext(null);
+const clearAuthStorage = () => {
+  localStorage.removeItem('access_token');
+  localStorage.removeItem('refresh_token');
+  localStorage.removeItem('user');
+};
+
+const isAccessTokenValid = (token) => {
+  try {
+    const { exp } = jwtDecode(token);
+    return exp * 1000 > Date.now();
+  } catch {
+    return false;
+  }
+};
+
+const getStoredUser = () => {
+  const storedUser = localStorage.getItem('user');
+  const token = localStorage.getItem('access_token');
+  const refreshToken = localStorage.getItem('refresh_token');
+
+  if (!storedUser || !token) return null;
+
+  if (isAccessTokenValid(token) || refreshToken) {
+    return JSON.parse(storedUser);
+  }
+
+  clearAuthStorage();
+  return null;
+};
 
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const initializeAuth = () => {
-      const storedUser = localStorage.getItem('user');
-      const token = localStorage.getItem('access_token');
-
-      if (storedUser && token) {
-        setUser(JSON.parse(storedUser));
-      }
-      setLoading(false);
-    };
-
-    initializeAuth();
-  }, []);
+  const [user, setUser] = useState(getStoredUser);
 
   const login = (data) => {
     localStorage.setItem('access_token', data.access);
@@ -42,17 +57,15 @@ export const AuthProvider = ({ children }) => {
         await axiosInstance.post('auth/logout/', { refresh });
       }
     } catch (error) {
-      console.error("Failed to revoke token on server:", error);
+      console.error('Failed to revoke token on server:', error);
     } finally {
-      localStorage.removeItem('access_token');
-      localStorage.removeItem('refresh_token');
-      localStorage.removeItem('user');
+      clearAuthStorage();
       setUser(null);
     }
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, logout, loading }}>
+    <AuthContext.Provider value={{ user, login, logout, loading: false }}>
       {children}
     </AuthContext.Provider>
   );

@@ -4,15 +4,16 @@ import Signup from "./pages/Signup.jsx";
 import Dashboard from './pages/Dashboard';
 import MainLayout from './layout/MainLayout';
 import ProtectedRoute from './components/ProtectedRoute';
+import GuestRoute from './components/GuestRoute';
 
 function App() {
   return (
     <Router>
       <Routes>
 
-        {/* مسیرهای عمومی */}
-        <Route path="/login" element={<Login />} />
-        <Route path="/signup" element={<Signup />} />
+        {/* مسیرهای عمومی — فقط برای مهمان */}
+        <Route path="/login" element={<GuestRoute><Login /></GuestRoute>} />
+        <Route path="/signup" element={<GuestRoute><Signup /></GuestRoute>} />
 
         {/* مسیرهای محافظت‌شده (Private Routes)
           هر صفحه‌ای که داخل این بلاک باشد، ابتدا توکن آن چک می‌شود
