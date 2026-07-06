@@ -17,6 +17,26 @@ services:
       timeout: 3s
       retries: 5
 
+  db:
+    image: mysql:8.0
+    container_name: reminder_db
+    restart: always
+    ports:
+      - "3306:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD}
+      MYSQL_DATABASE: ${DB_NAME}
+    volumes:
+      - mysql_data:/var/lib/mysql
+    networks:
+      - app_network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
   backend:
     build:
       context: ./backend
@@ -32,11 +52,9 @@ services:
     env_file:
       - ./backend/.env
     environment:
-      - DB_HOST=host.docker.internal
+      - DB_HOST=db
       - CELERY_BROKER_URL=redis://redis:6379/0
       - CELERY_RESULT_BACKEND=redis://redis:6379/0
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
     volumes:
       - static_volume:/app/staticfiles
       - media_volume:/app/media
@@ -44,6 +62,8 @@ services:
       - app_network
     depends_on:
       redis:
+        condition: service_healthy
+      db:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/')"]
@@ -62,17 +82,17 @@ services:
     env_file:
       - ./backend/.env
     environment:
-      - DB_HOST=host.docker.internal
+      - DB_HOST=db
       - CELERY_BROKER_URL=redis://redis:6379/0
       - CELERY_RESULT_BACKEND=redis://redis:6379/0
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
     volumes:
       - media_volume:/app/media
     networks:
       - app_network
     depends_on:
       redis:
+        condition: service_healthy
+      db:
         condition: service_healthy
       backend:
         condition: service_healthy
@@ -87,15 +107,15 @@ services:
     env_file:
       - ./backend/.env
     environment:
-      - DB_HOST=host.docker.internal
+      - DB_HOST=db
       - CELERY_BROKER_URL=redis://redis:6379/0
       - CELERY_RESULT_BACKEND=redis://redis:6379/0
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
     networks:
       - app_network
     depends_on:
       redis:
+        condition: service_healthy
+      db:
         condition: service_healthy
       backend:
         condition: service_healthy
@@ -123,6 +143,8 @@ networks:
 
 volumes:
   redis_data:
+    driver: local
+  mysql_data:
     driver: local
   static_volume:
     driver: local

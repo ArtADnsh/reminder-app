@@ -146,7 +146,18 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # ── 2. Build all images defined in docker-compose.yml ──────────────
+      # ── 2. Create root .env for Compose variable interpolation ────────
+      # The db service uses ${DB_...} variables in docker-compose.yml.
+      # Provide CI-safe dummy values so `docker compose build` can resolve them.
+      - name: Create root .env for Compose interpolation
+        run: |
+          cat <<EOF > .env
+          DB_NAME=ci_todo_db
+          DB_USER=ci_user
+          DB_PASSWORD=ci_password
+          EOF
+
+      # ── 3. Build all images defined in docker-compose.yml ──────────────
       # Validates Dockerfiles, dependency graphs, and layer integrity
       # in an isolated runner without pushing any images.
       - name: Build Docker images
