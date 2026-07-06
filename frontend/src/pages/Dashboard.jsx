@@ -7,6 +7,7 @@ export default function Dashboard() {
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeFilter, setActiveFilter] = useState('all');
+  const [activeStatus, setActiveStatus] = useState('pending');
 
   // State های مربوط به مودال
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -18,10 +19,17 @@ export default function Dashboard() {
     setIsModalOpen(true);
   };
 
+  const buildFetchUrl = () => {
+    const params = new URLSearchParams();
+    if (activeFilter !== 'all') params.append('filter', activeFilter);
+    if (activeStatus !== 'all') params.append('status', activeStatus);
+    const qs = params.toString();
+    return qs ? `tasks/?${qs}` : 'tasks/';
+  };
+
   const fetchTasks = async () => {
     try {
-      const url = activeFilter === 'all' ? 'tasks/' : `tasks/?filter=${activeFilter}`;
-      const response = await axiosInstance.get(url);
+      const response = await axiosInstance.get(buildFetchUrl());
       setTasks(response.data);
     } catch (error) {
       console.error('خطا در بارگذاری یادآورها:', error);
@@ -35,8 +43,7 @@ export default function Dashboard() {
     let cancelled = false;
     setLoading(true);
 
-    const url = activeFilter === 'all' ? 'tasks/' : `tasks/?filter=${activeFilter}`;
-    axiosInstance.get(url)
+    axiosInstance.get(buildFetchUrl())
       .then((response) => {
         if (!cancelled) setTasks(response.data);
       })
@@ -51,7 +58,7 @@ export default function Dashboard() {
       });
 
     return () => { cancelled = true; };
-  }, [activeFilter]);
+  }, [activeFilter, activeStatus]);
 
 // هندل کردن ثبت تسک جدید با Payload هوشمند
   const handleCreateTask = async (formData) => {
@@ -139,27 +146,52 @@ export default function Dashboard() {
         </button>
       </div>
 
-      {/* تب‌های فیلتر */}
-      <div className="flex flex-wrap gap-2 mb-8">
-        {[
-          { id: 'all', label: 'همه' },
-          { id: 'today', label: 'امروز' },
-          { id: 'this_week', label: 'این هفته' },
-          { id: 'this_month', label: 'این ماه' }
-        ].map(tab => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveFilter(tab.id)}
-            disabled={loading}
-            className={`px-5 py-2 rounded-full text-sm font-bold transition-all duration-300 shadow-sm outline-none border ${
-              activeFilter === tab.id
-                ? 'bg-primary text-white border-primary scale-105 shadow-primary/30'
-                : 'bg-white text-gray-600 hover:bg-gray-50 border-gray-100 hover:border-gray-200 hover:text-primary'
-            } ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
-          >
-            {tab.label}
-          </button>
-        ))}
+      {/* نوار فیلترها */}
+      <div className="flex flex-col xl:flex-row gap-4 mb-8 justify-between items-start xl:items-center bg-white p-3 sm:p-4 rounded-xl border border-gray-100 shadow-sm">
+        {/* فیلترهای زمانی */}
+        <div className="flex flex-wrap gap-2">
+          {[
+            { id: 'all', label: 'همه زمان‌ها' },
+            { id: 'today', label: 'امروز' },
+            { id: 'this_week', label: 'این هفته' },
+            { id: 'this_month', label: 'این ماه' }
+          ].map(tab => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveFilter(tab.id)}
+              disabled={loading}
+              className={`px-4 sm:px-5 py-2 rounded-full text-xs sm:text-sm font-bold transition-all duration-300 shadow-sm outline-none border ${
+                activeFilter === tab.id
+                  ? 'bg-primary text-white border-primary scale-105 shadow-primary/30'
+                  : 'bg-white text-gray-600 hover:bg-gray-50 border-gray-100 hover:border-gray-200 hover:text-primary'
+              } ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
+        {/* فیلترهای وضعیت */}
+        <div className="flex items-center bg-gray-50 p-1.5 rounded-xl border border-gray-200 shadow-inner w-full xl:w-auto">
+          {[
+            { id: 'all', label: 'همه وضعیت‌ها' },
+            { id: 'pending', label: 'در انتظار ⏳' },
+            { id: 'completed', label: 'انجام شده ✅' }
+          ].map(status => (
+            <button
+              key={status.id}
+              onClick={() => setActiveStatus(status.id)}
+              disabled={loading}
+              className={`flex-1 xl:flex-none px-3 sm:px-4 py-1.5 rounded-lg text-xs sm:text-sm font-semibold transition-all duration-200 outline-none ${
+                activeStatus === status.id
+                  ? 'bg-white text-gray-800 shadow-sm border border-gray-200'
+                  : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100 border border-transparent'
+              } ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
+            >
+              {status.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* مودال ساخت تسک */}
