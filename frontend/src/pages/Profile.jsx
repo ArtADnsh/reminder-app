@@ -1,8 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useContext } from 'react';
 import { toast } from 'react-toastify';
 import { userService } from '../api/userService';
+import { AuthContext } from '../context/authContext';
 
 export default function Profile() {
+  const { updateUser } = useContext(AuthContext);
   const [loading, setLoading] = useState(true);
   const [profileData, setProfileData] = useState(null);
   
@@ -34,6 +36,7 @@ export default function Profile() {
     try {
       const updatedUser = await userService.updateUserProfile(accountForm);
       setProfileData(updatedUser);
+      updateUser({ username: updatedUser.username, email: updatedUser.email });
       toast.success('پروفایل با موفقیت بروزرسانی شد');
     } catch (error) {
       const errorMsg = error.response?.data?.email?.[0] || error.response?.data?.username?.[0] || 'ایمیل یا نام کاربری تکراری است یا خطایی رخ داد.';
@@ -120,14 +123,13 @@ export default function Profile() {
               />
             </div>
             <div>
-              <label className="block text-sm font-bold text-gray-700 mb-1.5">آدرس ایمیل</label>
+              <label className="block text-sm font-bold text-gray-700 mb-1.5">آدرس ایمیل (غیرقابل ویرایش)</label>
               <input
                 type="email"
                 value={accountForm.email}
-                onChange={(e) => setAccountForm({ ...accountForm, email: e.target.value })}
-                className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary/30 focus:border-primary focus:bg-white outline-none transition-all text-left"
+                className="w-full p-3 bg-gray-100 text-gray-500 border border-gray-200 rounded-xl outline-none cursor-not-allowed text-left opacity-80"
                 dir="ltr"
-                required
+                disabled
               />
             </div>
             <button
