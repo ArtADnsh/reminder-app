@@ -46,7 +46,7 @@ To run this project, you need exactly **one** dependency installed on your syste
    Create `.env` in the root directory:
    ```env
    DB_NAME=todo_db
-   DB_USER=root
+   DB_USER=reminder_app
    DB_PASSWORD=YourSecurePassword123
    ```
 
