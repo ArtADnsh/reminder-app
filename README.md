@@ -36,7 +36,7 @@ To run this project, you need exactly **one** dependency installed on your syste
 
 1. **Clone the repository:**
    ```bash
-   git clone <your-repo-url>
+   git clone https://github.com/ArtADnsh/reminder-app
    cd reminder-app
    ```
 
