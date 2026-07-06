@@ -6,6 +6,7 @@ import TaskModal from '../components/TaskModal';
 export default function Dashboard() {
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [activeFilter, setActiveFilter] = useState('all');
 
   // State های مربوط به مودال
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -19,7 +20,8 @@ export default function Dashboard() {
 
   const fetchTasks = async () => {
     try {
-      const response = await axiosInstance.get('tasks/');
+      const url = activeFilter === 'all' ? 'tasks/' : `tasks/?filter=${activeFilter}`;
+      const response = await axiosInstance.get(url);
       setTasks(response.data);
     } catch (error) {
       console.error('خطا در بارگذاری یادآورها:', error);
@@ -31,8 +33,10 @@ export default function Dashboard() {
 
   useEffect(() => {
     let cancelled = false;
+    setLoading(true);
 
-    axiosInstance.get('tasks/')
+    const url = activeFilter === 'all' ? 'tasks/' : `tasks/?filter=${activeFilter}`;
+    axiosInstance.get(url)
       .then((response) => {
         if (!cancelled) setTasks(response.data);
       })
@@ -47,7 +51,7 @@ export default function Dashboard() {
       });
 
     return () => { cancelled = true; };
-  }, []);
+  }, [activeFilter]);
 
 // هندل کردن ثبت تسک جدید با Payload هوشمند
   const handleCreateTask = async (formData) => {
@@ -122,23 +126,10 @@ export default function Dashboard() {
   };
 
 
-  if (loading) {
-    return (
-      <div className="space-y-6">
-        <div className="h-8 bg-gray-200 rounded w-48 animate-pulse"></div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {[1, 2, 3, 4, 5, 6].map((i) => (
-            <div key={i} className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 animate-pulse h-32"></div>
-          ))}
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div>
       {/* هدر داشبورد */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
         <h2 className="text-2xl font-bold text-gray-800">یادآورهای فعال</h2>
         <button
           onClick={openModal}
@@ -146,6 +137,29 @@ export default function Dashboard() {
         >
           <span className="text-xl leading-none">+</span> یادآور جدید
         </button>
+      </div>
+
+      {/* تب‌های فیلتر */}
+      <div className="flex flex-wrap gap-2 mb-8">
+        {[
+          { id: 'all', label: 'همه' },
+          { id: 'today', label: 'امروز' },
+          { id: 'this_week', label: 'این هفته' },
+          { id: 'this_month', label: 'این ماه' }
+        ].map(tab => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveFilter(tab.id)}
+            disabled={loading}
+            className={`px-5 py-2 rounded-full text-sm font-bold transition-all duration-300 shadow-sm outline-none border ${
+              activeFilter === tab.id
+                ? 'bg-primary text-white border-primary scale-105 shadow-primary/30'
+                : 'bg-white text-gray-600 hover:bg-gray-50 border-gray-100 hover:border-gray-200 hover:text-primary'
+            } ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
+          >
+            {tab.label}
+          </button>
+        ))}
       </div>
 
       {/* مودال ساخت تسک */}
@@ -157,19 +171,29 @@ export default function Dashboard() {
         isSubmitting={isSubmitting}
       />
 
-      {/* لیست تسک‌ها */}
-      {tasks.length === 0 ? (
+      {/* لیست تسک‌ها یا اسکلتون */}
+      {loading ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {[1, 2, 3, 4, 5, 6].map((i) => (
+            <div key={i} className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 animate-pulse h-40"></div>
+          ))}
+        </div>
+      ) : tasks.length === 0 ? (
         <div className="flex flex-col items-center justify-center h-full text-center py-20 bg-white rounded-2xl border border-gray-100 border-dashed">
           <div className="text-6xl mb-4 opacity-80">📭</div>
-          <h3 className="text-xl font-bold text-gray-700 mb-2">هیچ یادآوری وجود ندارد</h3>
+          <h3 className="text-xl font-bold text-gray-700 mb-2">
+            {activeFilter === 'all' ? 'هیچ یادآوری وجود ندارد' : 'یادآوری برای این بازه زمانی یافت نشد'}
+          </h3>
           <p className="text-gray-500 mb-6 max-w-sm">
-            اولین یادآور خود را ثبت کنید تا سیستم پردازش‌های Celery کار خود را آغاز کند.
+            {activeFilter === 'all' 
+              ? 'اولین یادآور خود را ثبت کنید تا سیستم پردازش‌های Celery کار خود را آغاز کند.'
+              : 'بازه‌های زمانی دیگر را بررسی کنید یا یادآور جدیدی بسازید.'}
           </p>
           <button
             onClick={openModal}
             className="px-6 py-2.5 border-2 border-primary text-primary font-bold rounded-lg hover:bg-blue-50 transition-colors"
           >
-            ثبت اولین یادآور
+            ثبت یادآور جدید
           </button>
         </div>
       ) : (
