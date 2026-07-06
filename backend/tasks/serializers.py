@@ -128,18 +128,12 @@ class UserProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ('id', 'username', 'email', 'date_joined')
-        read_only_fields = ('id', 'date_joined')
+        read_only_fields = ('id', 'date_joined', 'email')
 
     def validate_username(self, value):
         user = self.context['request'].user
         if User.objects.filter(username=value).exclude(pk=user.pk).exists():
             raise serializers.ValidationError("This username is already taken.")
-        return value
-
-    def validate_email(self, value):
-        user = self.context['request'].user
-        if User.objects.filter(email=value).exclude(pk=user.pk).exists():
-            raise serializers.ValidationError("This email is already in use.")
         return value
 
 

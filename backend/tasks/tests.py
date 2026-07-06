@@ -1188,18 +1188,6 @@ class UserProfileTests(AuthenticatedAPITestCase):
 
     # ---- PATCH /me/ --------------------------------------------------------
 
-    def test_patch_profile_updates_email(self):
-        response = self.client.patch(
-            self.profile_url,
-            {'email': 'new@example.com'},
-            format='json',
-        )
-
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(response.data['email'], 'new@example.com')
-        self.user.refresh_from_db()
-        self.assertEqual(self.user.email, 'new@example.com')
-
     def test_patch_profile_updates_username(self):
         response = self.client.patch(
             self.profile_url,
@@ -1222,16 +1210,6 @@ class UserProfileTests(AuthenticatedAPITestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn('username', response.data)
 
-    def test_patch_profile_rejects_duplicate_email(self):
-        response = self.client.patch(
-            self.profile_url,
-            {'email': 'other@example.com'},
-            format='json',
-        )
-
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn('email', response.data)
-
     def test_patch_profile_allows_keeping_own_username(self):
         """Submitting the current username should not trigger a uniqueness error."""
         response = self.client.patch(
@@ -1242,25 +1220,29 @@ class UserProfileTests(AuthenticatedAPITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
-    def test_patch_profile_allows_keeping_own_email(self):
+    def test_patch_profile_ignores_email(self):
+        """Email is read-only; passing it must not change the stored value."""
         response = self.client.patch(
             self.profile_url,
-            {'email': 'test@example.com'},
+            {'email': 'hacker@example.com'},
             format='json',
         )
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.email, 'test@example.com')
 
     def test_unauthenticated_patch_returns_401(self):
         self.client.credentials()
         response = self.client.patch(
-            self.profile_url, {'email': 'x@x.com'}, format='json',
+            self.profile_url, {'username': 'x'}, format='json',
         )
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
 
     # ---- PUT /me/ ----------------------------------------------------------
 
-    def test_put_profile_updates_both_fields(self):
+    def test_put_profile_updates_username_only(self):
+        """PUT updates username; email in body is ignored (read-only)."""
         response = self.client.put(
             self.profile_url,
             {'username': 'fullupdate', 'email': 'full@example.com'},
@@ -1269,7 +1251,8 @@ class UserProfileTests(AuthenticatedAPITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data['username'], 'fullupdate')
-        self.assertEqual(response.data['email'], 'full@example.com')
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.email, 'test@example.com')
 
     # ---- POST /me/change-password/ -----------------------------------------
 
