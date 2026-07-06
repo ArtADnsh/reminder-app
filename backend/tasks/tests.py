@@ -300,7 +300,7 @@ class CeleryIntegrationTests(AuthenticatedAPITestCase):
         mock_apply_async.assert_called_once()
 
         _, call_kwargs = mock_apply_async.call_args
-        self.assertEqual(call_kwargs['task_id'], f'task_{task_id}')
+        self.assertEqual(call_kwargs['task_id'], f'task_{task_id}_reminder_0')
         self.assertEqual(mock_apply_async.call_args[0][0], (task_id,))
 
     @patch('tasks.views.celery_app.control.revoke')
@@ -315,7 +315,7 @@ class CeleryIntegrationTests(AuthenticatedAPITestCase):
         )
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        mock_revoke.assert_called_once_with(f'task_{task.id}', terminate=True)
+        mock_revoke.assert_called_once_with(f'task_{task.id}_reminder_0', terminate=True)
 
     @patch('tasks.views.celery_app.control.revoke')
     def test_marking_task_not_done_does_not_revoke(self, mock_revoke):
@@ -339,7 +339,7 @@ class CeleryIntegrationTests(AuthenticatedAPITestCase):
         response = self.client.delete(self.task_detail_url(task.id))
 
         self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
-        mock_revoke.assert_called_once_with(f'task_{task.id}', terminate=True)
+        mock_revoke.assert_called_once_with(f'task_{task.id}_reminder_0', terminate=True)
         self.assertFalse(Task.objects.filter(id=task.id).exists())
 
 
@@ -652,7 +652,7 @@ class CeleryTaskUnitTests(TestCase):
         mock_apply_async.assert_called_once()
         call_args, call_kwargs = mock_apply_async.call_args
         self.assertEqual(call_args[0], (task.id,))
-        self.assertEqual(call_kwargs['task_id'], f'task_{task.id}')
+        self.assertEqual(call_kwargs['task_id'], f'task_{task.id}_reminder_1')
         task.refresh_from_db()
         self.assertEqual(task.sent_reminders, 1)
 
@@ -675,7 +675,7 @@ class CeleryTaskUnitTests(TestCase):
         mock_send_mail.assert_not_called()
         mock_apply_async.assert_called_once()
         _, call_kwargs = mock_apply_async.call_args
-        self.assertEqual(call_kwargs['task_id'], f'task_{task.id}')
+        self.assertEqual(call_kwargs['task_id'], f'task_{task.id}_reminder_0')
 
     @patch('tasks.tasks.send_mail')
     def test_send_reminder_email_skips_completed_task(self, mock_send_mail):
@@ -720,7 +720,7 @@ class CeleryTaskUnitTests(TestCase):
         mock_apply_async.assert_called_once_with(
             (task.id,),
             eta=task.first_reminder,
-            task_id=f'task_{task.id}',
+            task_id=f'task_{task.id}_reminder_0',
         )
 
     @patch('tasks.tasks.send_reminder_email.apply_async')

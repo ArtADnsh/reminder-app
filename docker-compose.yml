@@ -5,8 +5,6 @@ services:
     image: redis:7-alpine
     container_name: reminder_redis
     restart: always
-    ports:
-      - "6379:6379"
     volumes:
       - redis_data:/data
     networks:
@@ -21,8 +19,6 @@ services:
     image: mysql:8.0
     container_name: reminder_db
     restart: always
-    ports:
-      - "3306:3306"
     environment:
       MYSQL_ROOT_PASSWORD: ${DB_PASSWORD}
       MYSQL_DATABASE: ${DB_NAME}
@@ -41,12 +37,13 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
+    image: reminder_backend:latest
     container_name: reminder_backend
     restart: always
     command: >
       sh -c "python manage.py migrate --noinput &&
              python manage.py collectstatic --noinput &&
-             gunicorn TODOList.wsgi:application --bind 0.0.0.0:8000"
+             gunicorn TODOList.wsgi:application --bind 0.0.0.0:8000 --workers 3"
     ports:
       - "8000:8000"
     env_file:
@@ -73,9 +70,7 @@ services:
       start_period: 15s
 
   celery_worker:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
+    image: reminder_backend:latest
     container_name: reminder_celery_worker
     restart: always
     command: celery -A TODOList worker --loglevel=info
@@ -96,11 +91,15 @@ services:
         condition: service_healthy
       backend:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD", "celery", "-A", "TODOList", "inspect", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
 
   celery_beat:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
+    image: reminder_backend:latest
     container_name: reminder_celery_beat
     restart: always
     command: celery -A TODOList beat --loglevel=info

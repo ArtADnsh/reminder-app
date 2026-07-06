@@ -17,5 +17,13 @@ class Task(models.Model):
 
     created_at = models.DateTimeField(auto_now_add=True)
 
+    class Meta:
+        indexes = [
+            models.Index(
+                fields=['is_done', 'first_reminder', 'sent_reminders'],
+                name='idx_reminder_check',
+            ),
+        ]
+
     def __str__(self):
         return self.title

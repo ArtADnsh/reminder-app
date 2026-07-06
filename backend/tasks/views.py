@@ -21,17 +21,19 @@ User = get_user_model()
 logger = logging.getLogger(__name__)
 
 
-def _revoke_celery_task(celery_task_id):
-    """Revoke a Celery task and log any broker errors."""
-    try:
-        celery_app.control.revoke(celery_task_id, terminate=True)
-    except Exception:
-        logger.error(
-            'Failed to revoke Celery task: celery_task_id=%s',
-            celery_task_id,
-            exc_info=True,
-        )
-        raise
+def _revoke_celery_task(task_instance):
+    """Revoke all pending Celery reminders for the given task."""
+    for i in range(task_instance.sent_reminders, task_instance.repeat_reminder or 1):
+        celery_task_id = f"task_{task_instance.id}_reminder_{i}"
+        try:
+            celery_app.control.revoke(celery_task_id, terminate=True)
+        except Exception:
+            logger.error(
+                'Failed to revoke Celery task: celery_task_id=%s',
+                celery_task_id,
+                exc_info=True,
+            )
+            raise
 
 
 # ==========================================
@@ -72,15 +74,13 @@ class TaskViewSet(ModelViewSet):
         )
         # اگر کاربر تسک را به عنوان انجام‌شده تیک زد، یادآور لغو شود
         if instance.is_done:
-            celery_task_id = f"task_{instance.id}"
-            _revoke_celery_task(celery_task_id)
+            _revoke_celery_task(instance)
 
     def perform_destroy(self, instance):
         user_id = self.request.user.id
         task_id = instance.id
         # قبل از حذف کردن تسک از دیتابیس، پردازش آن را در سلری لغو کن
-        celery_task_id = f"task_{task_id}"
-        _revoke_celery_task(celery_task_id)
+        _revoke_celery_task(instance)
         instance.delete()
         logger.info(
             'Task deleted: user_id=%s task_id=%s',

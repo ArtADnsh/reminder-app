@@ -1,6 +1,7 @@
 import logging
 
 from celery import shared_task
+from django.conf import settings as django_settings
 from django.core.mail import send_mail
 from datetime import timedelta
 from django.utils import timezone
@@ -14,8 +15,7 @@ logger = logging.getLogger(__name__)
 @receiver(post_save, sender=Task)
 def schedule_first_reminder(sender, instance, created, **kwargs):
     if created and not instance.is_done:
-        # ساخت یک آیدی یکتا بر اساس آیدی خودِ تسک
-        celery_task_id = f"task_{instance.id}"
+        celery_task_id = f"task_{instance.id}_reminder_0"
         send_reminder_email.apply_async((instance.id,), eta=instance.first_reminder, task_id=celery_task_id)
 
 
@@ -34,7 +34,7 @@ def send_reminder_email(task_id):
                 message = f'This is a reminder to complete your task: {task.title}'
 
                 try:
-                    send_mail(subject, message, 'artadnsh@gmail.com', [to_email])
+                    send_mail(subject, message, django_settings.EMAIL_HOST_USER, [to_email])
                 except Exception:
                     logger.error(
                         'Failed to send reminder email: task_id=%s recipient=%s',
@@ -57,12 +57,12 @@ def send_reminder_email(task_id):
                     next_reminder_time = task.first_reminder + timedelta(
                         minutes=task.time_between_reminders * task.sent_reminders)
 
-                    # اختصاص دوباره همان آیدی برای تکرار بعدی
-                    celery_task_id = f"task_{task.id}"
+                    # Include iteration count for unique Celery task ID
+                    celery_task_id = f"task_{task.id}_reminder_{task.sent_reminders}"
                     send_reminder_email.apply_async((task.id,), eta=next_reminder_time, task_id=celery_task_id)
             else:
                 next_reminder_time = timezone.localtime(task.first_reminder)
-                celery_task_id = f"task_{task.id}"
+                celery_task_id = f"task_{task.id}_reminder_0"
                 send_reminder_email.apply_async((task.id,), eta=next_reminder_time, task_id=celery_task_id)
 
     except Task.DoesNotExist:
@@ -85,5 +85,5 @@ def check_and_send_reminders():
 
     for task in tasks:
         if task.sent_reminders < task.repeat_reminder:
-            celery_task_id = f"task_{task.id}"
+            celery_task_id = f"task_{task.id}_reminder_{task.sent_reminders}"
             send_reminder_email.apply_async((task.id,), eta=task.first_reminder, task_id=celery_task_id)
