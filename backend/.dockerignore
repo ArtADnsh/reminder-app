@@ -1,0 +1,32 @@
+# Python ignore files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+env/
+
+# IDE configurations
+.idea/
+.vscode/
+
+# Local databases and logs
+*.log
+celerybeat-schedule
+db.sqlite3
+
+# Test and coverage results
+.coverage
+htmlcov/
+.pytest_cache/
+.tox/
+
+# Sensitive data
+.env
+
+# Docker files
+Dockerfile
+.dockerignore
