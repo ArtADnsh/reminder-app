@@ -1,4 +1,6 @@
+import calendar
 import logging
+from datetime import timedelta
 
 from rest_framework.viewsets import ModelViewSet
 from rest_framework.generics import CreateAPIView
@@ -13,6 +15,7 @@ from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from TODOList.celery import app as celery_app
 
 from django.contrib.auth import get_user_model
+from django.utils import timezone
 
 from .models import Task
 from .serializers import TaskSerializer, SignUpSerializer
@@ -50,7 +53,20 @@ class TaskViewSet(ModelViewSet):
         is_mine_requested = self.request.query_params.get('mine') in ('1', 'true', 'True')
 
         if self.request.user.is_staff and not is_mine_requested:
-            return Task.objects.all().order_by('-id')
+            qs = Task.objects.all()
+
+        filter_value = self.request.query_params.get('filter')
+        today = timezone.now().date()
+
+        if filter_value == 'today':
+            qs = qs.filter(first_reminder__date=today)
+        elif filter_value == 'week':
+            week_end = today + timedelta(days=7)
+            qs = qs.filter(first_reminder__date__gte=today, first_reminder__date__lte=week_end)
+        elif filter_value == 'month':
+            month_start = today.replace(day=1)
+            month_end = today.replace(day=calendar.monthrange(today.year, today.month)[1])
+            qs = qs.filter(first_reminder__date__gte=month_start, first_reminder__date__lte=month_end)
 
         return qs.order_by('-id')
 

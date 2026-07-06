@@ -738,3 +738,208 @@ class CeleryTaskUnitTests(TestCase):
         check_and_send_reminders()
 
         mock_apply_async.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
+# 8. Time-based filtering — ?filter=today, week, month, all
+# ---------------------------------------------------------------------------
+
+class TaskFilterTests(AuthenticatedAPITestCase):
+    """
+    Verify the ``?filter`` query-param branching in TaskViewSet.get_queryset.
+
+    Tasks are created via the ORM with ``first_reminder`` offsets relative to
+    ``timezone.now()`` so the assertions are deterministic regardless of the
+    exact wall-clock time the suite runs.
+    """
+
+    def setUp(self):
+        super().setUp()
+        # Prevent Celery scheduling during fixture creation.
+        post_save.disconnect(schedule_first_reminder, sender=Task)
+        self.addCleanup(post_save.connect, schedule_first_reminder, sender=Task)
+
+        now = timezone.now()
+        today = now.date()
+
+        # --- Fixtures --------------------------------------------------------
+        # 1. 35 days ago – guaranteed to be in a previous month.
+        Task.objects.create(
+            user=self.user,
+            title='Past',
+            first_reminder=now - timedelta(days=35),
+        )
+
+        # 2. Today – matches "today", "week", and "month".
+        Task.objects.create(
+            user=self.user,
+            title='Today',
+            first_reminder=now,
+        )
+
+        # 3. In 3 days – matches "week" and "month".
+        Task.objects.create(
+            user=self.user,
+            title='In 3 Days',
+            first_reminder=now + timedelta(days=3),
+        )
+
+        # 4. In 10 days – matches "month" only (> 7 day week window).
+        Task.objects.create(
+            user=self.user,
+            title='In 10 Days',
+            first_reminder=now + timedelta(days=10),
+        )
+
+        # 5. In 60 days – outside every filter except "all".
+        Task.objects.create(
+            user=self.user,
+            title='Far Future',
+            first_reminder=now + timedelta(days=60),
+        )
+
+        # 6. Other user's task – must never appear.
+        Task.objects.create(
+            user=self.other_user,
+            title='Other User Today',
+            first_reminder=now,
+        )
+
+    # ---- helpers -----------------------------------------------------------
+
+    def _get(self, query=''):
+        url = f'{self.tasks_list_url}{query}'
+        return self.client.get(url)
+
+    def _titles(self, response):
+        return [item['title'] for item in response.data]
+
+    # ---- ?filter=today -----------------------------------------------------
+
+    def test_filter_today_returns_only_today_tasks(self):
+        response = self._get('?filter=today')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(self._titles(response), ['Today'])
+
+    def test_filter_today_excludes_other_users(self):
+        response = self._get('?filter=today')
+        titles = self._titles(response)
+        self.assertNotIn('Other User Today', titles)
+
+    # ---- ?filter=week ------------------------------------------------------
+
+    def test_filter_week_returns_today_through_7_days(self):
+        response = self._get('?filter=week')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        titles = self._titles(response)
+        self.assertIn('Today', titles)
+        self.assertIn('In 3 Days', titles)
+        self.assertNotIn('In 10 Days', titles)
+        self.assertNotIn('Past', titles)
+        self.assertNotIn('Far Future', titles)
+        # Expect exactly 2: Today + In 3 Days
+        self.assertEqual(len(response.data), 2)
+
+    def test_filter_week_excludes_other_users(self):
+        response = self._get('?filter=week')
+        titles = self._titles(response)
+        self.assertNotIn('Other User Today', titles)
+
+    # ---- ?filter=month -----------------------------------------------------
+
+    def test_filter_month_returns_first_through_last_of_month(self):
+        response = self._get('?filter=month')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        titles = self._titles(response)
+        self.assertIn('Today', titles)
+        self.assertIn('In 3 Days', titles)
+        self.assertIn('In 10 Days', titles)
+        self.assertNotIn('Past', titles)
+        self.assertNotIn('Far Future', titles)
+        # Expect exactly 3: Today + In 3 Days + In 10 Days
+        self.assertEqual(len(response.data), 3)
+
+    def test_filter_month_excludes_other_users(self):
+        response = self._get('?filter=month')
+        titles = self._titles(response)
+        self.assertNotIn('Other User Today', titles)
+
+    # ---- ?filter=all and default -------------------------------------------
+
+    def test_filter_all_returns_every_task_for_user(self):
+        response = self._get('?filter=all')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        # 5 tasks owned by self.user
+        self.assertEqual(len(response.data), 5)
+
+    def test_no_filter_param_returns_every_task(self):
+        response = self._get('')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 5)
+
+    def test_all_and_default_exclude_other_users(self):
+        for param in ('?filter=all', ''):
+            response = self._get(param)
+            titles = self._titles(response)
+            self.assertNotIn('Other User Today', titles)
+
+    # ---- unknown filter value ----------------------------------------------
+
+    def test_unknown_filter_returns_unfiltered(self):
+        """An unrecognised filter value should behave like ``all``."""
+        response = self._get('?filter=nonsense')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 5)
+
+    # ---- staff + filter interaction ----------------------------------------
+
+    def test_staff_with_filter_still_filters(self):
+        """Filtering should work even for staff users who normally see all tasks."""
+        self.staff_user = self.create_user('stafff', 'stafff@test.com')
+        self.staff_user.is_staff = True
+        self.staff_user.save()
+
+        # Staff has no tasks of their own; only the user's fixtures exist.
+        self.authenticate(self.staff_user.username)
+
+        response = self._get('?filter=today')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        # Staff sees ALL users' tasks matching the filter (Today + Other User Today).
+        titles = self._titles(response)
+        self.assertIn('Today', titles)
+        self.assertIn('Other User Today', titles)
+        self.assertEqual(len(response.data), 2)
+
+    def test_staff_with_mine_and_filter(self):
+        """?mine=1 + filter should scope to the staff user's own tasks only."""
+        self.staff_user = self.create_user('staffm', 'staffm@test.com')
+        self.staff_user.is_staff = True
+        self.staff_user.save()
+
+        Task.objects.create(
+            user=self.staff_user,
+            title='Staff Today',
+            first_reminder=timezone.now(),
+        )
+
+        self.authenticate(self.staff_user.username)
+
+        response = self._get('?mine=1&filter=today')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(self._titles(response), ['Staff Today'])
+
+    # ---- ordering ----------------------------------------------------------
+
+    def test_filtered_results_are_ordered_by_newest_first(self):
+        response = self._get('?filter=month')
+
+        ids = [item['id'] for item in response.data]
+        self.assertEqual(ids, sorted(ids, reverse=True))
