@@ -9,6 +9,7 @@ export default function MainLayout() {
 
   const menuItems = [
     { name: 'داشبورد', path: '/', icon: '📊' },
+    { name: 'پروفایل من', path: '/profile', icon: '👤' },
     // در آینده مسیرهای جدید را اینجا اضافه می‌کنیم
   ];
 
@@ -69,9 +70,9 @@ export default function MainLayout() {
               <p className="text-sm font-bold text-gray-800">{user?.username}</p>
               <p className="text-xs text-gray-500">کاربر سیستم</p>
             </div>
-            <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center text-white font-bold text-lg shadow-md">
+            <Link to="/profile" className="w-10 h-10 rounded-full bg-primary flex items-center justify-center text-white font-bold text-lg shadow-md hover:bg-blue-600 hover:scale-105 transition-all cursor-pointer">
               {user?.username?.charAt(0).toUpperCase()}
-            </div>
+            </Link>
             <button
               onClick={logout}
               className="ml-2 px-4 py-2 bg-red-50 text-red-600 hover:bg-red-500 hover:text-white rounded-lg text-sm font-bold transition-colors"
