@@ -18,7 +18,7 @@ from django.contrib.auth import get_user_model
 from django.utils import timezone
 
 from .models import Task
-from .serializers import TaskSerializer, SignUpSerializer
+from .serializers import TaskSerializer, SignUpSerializer, UserProfileSerializer, ChangePasswordSerializer
 
 User = get_user_model()
 logger = logging.getLogger(__name__)
@@ -186,3 +186,41 @@ class LogoutView(APIView):
             return response
         except Exception as e:
             return Response({"error": "Invalid token or request"}, status=status.HTTP_400_BAD_REQUEST)
+
+
+# ==========================================
+# 3. User Profile (/me)
+# ==========================================
+class UserProfileView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        serializer = UserProfileSerializer(request.user, context={'request': request})
+        return Response(serializer.data)
+
+    def patch(self, request):
+        serializer = UserProfileSerializer(
+            request.user, data=request.data, partial=True, context={'request': request},
+        )
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data)
+
+    def put(self, request):
+        serializer = UserProfileSerializer(
+            request.user, data=request.data, context={'request': request},
+        )
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data)
+
+
+class ChangePasswordView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        serializer = ChangePasswordSerializer(data=request.data, context={'request': request})
+        serializer.is_valid(raise_exception=True)
+        request.user.set_password(serializer.validated_data['new_password'])
+        request.user.save()
+        return Response({"msg": "Password changed successfully."}, status=status.HTTP_200_OK)

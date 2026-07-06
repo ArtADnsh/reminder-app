@@ -1,7 +1,7 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from rest_framework_simplejwt.views import TokenRefreshView
-from .views import TaskViewSet, SignUpView, LoginView, LogoutView
+from .views import TaskViewSet, SignUpView, LoginView, LogoutView, UserProfileView, ChangePasswordView
 
 
 # تنظیم روتر برای مدیریت اتوماتیک CRUD تسک‌ها
@@ -14,6 +14,10 @@ urlpatterns = [
     path('auth/login/', LoginView.as_view(), name='api_login'),
     path('auth/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     path('auth/logout/', LogoutView.as_view(), name='logout'),
+
+    # User profile
+    path('users/me/', UserProfileView.as_view(), name='user_profile'),
+    path('users/me/change-password/', ChangePasswordView.as_view(), name='change_password'),
 
     path('', include(router.urls)),
 ]

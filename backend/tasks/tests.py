@@ -1152,3 +1152,174 @@ class TaskStatusFilterTests(AuthenticatedAPITestCase):
         self.assertNotIn('Today Pending', titles)
         self.assertNotIn('Other Pending', titles)
         self.assertEqual(len(response.data), 1)
+
+
+# ---------------------------------------------------------------------------
+# 10. User Profile — /api/users/me/
+# ---------------------------------------------------------------------------
+
+class UserProfileTests(AuthenticatedAPITestCase):
+    """Tests for GET/PATCH/PUT /api/users/me/ and POST /api/users/me/change-password/."""
+
+    def setUp(self):
+        super().setUp()
+        self.profile_url = reverse('user_profile')
+        self.change_password_url = reverse('change_password')
+
+    # ---- GET /me/ ----------------------------------------------------------
+
+    def test_unauthenticated_get_profile_returns_401(self):
+        self.client.credentials()
+        response = self.client.get(self.profile_url)
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_get_profile_returns_correct_schema(self):
+        response = self.client.get(self.profile_url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['username'], 'testuser')
+        self.assertEqual(response.data['email'], 'test@example.com')
+        self.assertEqual(response.data['id'], self.user.id)
+        self.assertIn('date_joined', response.data)
+
+    def test_get_profile_does_not_expose_password(self):
+        response = self.client.get(self.profile_url)
+        self.assertNotIn('password', response.data)
+
+    # ---- PATCH /me/ --------------------------------------------------------
+
+    def test_patch_profile_updates_email(self):
+        response = self.client.patch(
+            self.profile_url,
+            {'email': 'new@example.com'},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['email'], 'new@example.com')
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.email, 'new@example.com')
+
+    def test_patch_profile_updates_username(self):
+        response = self.client.patch(
+            self.profile_url,
+            {'username': 'newname'},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['username'], 'newname')
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.username, 'newname')
+
+    def test_patch_profile_rejects_duplicate_username(self):
+        response = self.client.patch(
+            self.profile_url,
+            {'username': 'otheruser'},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('username', response.data)
+
+    def test_patch_profile_rejects_duplicate_email(self):
+        response = self.client.patch(
+            self.profile_url,
+            {'email': 'other@example.com'},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('email', response.data)
+
+    def test_patch_profile_allows_keeping_own_username(self):
+        """Submitting the current username should not trigger a uniqueness error."""
+        response = self.client.patch(
+            self.profile_url,
+            {'username': 'testuser'},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+    def test_patch_profile_allows_keeping_own_email(self):
+        response = self.client.patch(
+            self.profile_url,
+            {'email': 'test@example.com'},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+    def test_unauthenticated_patch_returns_401(self):
+        self.client.credentials()
+        response = self.client.patch(
+            self.profile_url, {'email': 'x@x.com'}, format='json',
+        )
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    # ---- PUT /me/ ----------------------------------------------------------
+
+    def test_put_profile_updates_both_fields(self):
+        response = self.client.put(
+            self.profile_url,
+            {'username': 'fullupdate', 'email': 'full@example.com'},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['username'], 'fullupdate')
+        self.assertEqual(response.data['email'], 'full@example.com')
+
+    # ---- POST /me/change-password/ -----------------------------------------
+
+    def test_change_password_success(self):
+        response = self.client.post(
+            self.change_password_url,
+            {'old_password': 'SecurePass123!', 'new_password': 'NewSecure456!'},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.user.refresh_from_db()
+        self.assertTrue(self.user.check_password('NewSecure456!'))
+        self.assertFalse(self.user.check_password('SecurePass123!'))
+
+    def test_change_password_wrong_old_password_returns_400(self):
+        response = self.client.post(
+            self.change_password_url,
+            {'old_password': 'WrongPassword!', 'new_password': 'NewSecure456!'},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('old_password', response.data)
+
+    def test_change_password_weak_new_password_returns_400(self):
+        response = self.client.post(
+            self.change_password_url,
+            {'old_password': 'SecurePass123!', 'new_password': '123'},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('new_password', response.data)
+
+    def test_change_password_unauthenticated_returns_401(self):
+        self.client.credentials()
+        response = self.client.post(
+            self.change_password_url,
+            {'old_password': 'SecurePass123!', 'new_password': 'NewSecure456!'},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_change_password_missing_fields_returns_400(self):
+        response = self.client.post(
+            self.change_password_url, {}, format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('old_password', response.data)
+        self.assertIn('new_password', response.data)
