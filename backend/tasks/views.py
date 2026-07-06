@@ -68,6 +68,13 @@ class TaskViewSet(ModelViewSet):
             month_end = today.replace(day=calendar.monthrange(today.year, today.month)[1])
             qs = qs.filter(first_reminder__date__gte=month_start, first_reminder__date__lte=month_end)
 
+        status_value = self.request.query_params.get('status')
+
+        if status_value == 'pending':
+            qs = qs.filter(is_done=False)
+        elif status_value == 'completed':
+            qs = qs.filter(is_done=True)
+
         return qs.order_by('-id')
 
     def perform_create(self, serializer):

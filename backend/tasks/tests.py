@@ -943,3 +943,212 @@ class TaskFilterTests(AuthenticatedAPITestCase):
 
         ids = [item['id'] for item in response.data]
         self.assertEqual(ids, sorted(ids, reverse=True))
+
+
+# ---------------------------------------------------------------------------
+# 9. Status filtering — ?status=pending, completed, all
+# ---------------------------------------------------------------------------
+
+class TaskStatusFilterTests(AuthenticatedAPITestCase):
+    """
+    Verify the ``?status`` query-param for completion-status filtering.
+
+    Fixtures include tasks with varying ``is_done`` states so every branch
+    (pending / completed / all / missing) can be asserted.
+    """
+
+    def setUp(self):
+        super().setUp()
+        post_save.disconnect(schedule_first_reminder, sender=Task)
+        self.addCleanup(post_save.connect, schedule_first_reminder, sender=Task)
+
+        now = timezone.now()
+
+        # Today — pending
+        self.today_pending = Task.objects.create(
+            user=self.user, title='Today Pending',
+            first_reminder=now, is_done=False,
+        )
+        # Today — completed
+        self.today_done = Task.objects.create(
+            user=self.user, title='Today Done',
+            first_reminder=now, is_done=True,
+        )
+        # In 3 days — pending
+        self.future_pending = Task.objects.create(
+            user=self.user, title='Future Pending',
+            first_reminder=now + timedelta(days=3), is_done=False,
+        )
+        # In 3 days — completed
+        self.future_done = Task.objects.create(
+            user=self.user, title='Future Done',
+            first_reminder=now + timedelta(days=3), is_done=True,
+        )
+        # Other user — pending, today
+        self.other_today_pending = Task.objects.create(
+            user=self.other_user, title='Other Pending',
+            first_reminder=now, is_done=False,
+        )
+
+    # ---- helpers -----------------------------------------------------------
+
+    def _get(self, query=''):
+        return self.client.get(f'{self.tasks_list_url}{query}')
+
+    def _titles(self, response):
+        return [item['title'] for item in response.data]
+
+    # ---- ?status=pending ---------------------------------------------------
+
+    def test_status_pending_returns_only_pending(self):
+        response = self._get('?status=pending')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        titles = self._titles(response)
+        self.assertIn('Today Pending', titles)
+        self.assertIn('Future Pending', titles)
+        self.assertNotIn('Today Done', titles)
+        self.assertNotIn('Future Done', titles)
+        self.assertNotIn('Other Pending', titles)
+        self.assertEqual(len(response.data), 2)
+
+    # ---- ?status=completed -------------------------------------------------
+
+    def test_status_completed_returns_only_completed(self):
+        response = self._get('?status=completed')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        titles = self._titles(response)
+        self.assertIn('Today Done', titles)
+        self.assertIn('Future Done', titles)
+        self.assertNotIn('Today Pending', titles)
+        self.assertNotIn('Future Pending', titles)
+        self.assertNotIn('Other Pending', titles)
+        self.assertEqual(len(response.data), 2)
+
+    # ---- ?status=all and missing -------------------------------------------
+
+    def test_status_all_returns_both_states(self):
+        response = self._get('?status=all')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 4)
+
+    def test_no_status_param_returns_both_states(self):
+        response = self._get('')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 4)
+
+    def test_unknown_status_returns_both_states(self):
+        response = self._get('?status=nonsense')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 4)
+
+    # ---- combined: time filter + status ------------------------------------
+
+    def test_today_and_pending(self):
+        response = self._get('?filter=today&status=pending')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(self._titles(response), ['Today Pending'])
+
+    def test_today_and_completed(self):
+        response = self._get('?filter=today&status=completed')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(self._titles(response), ['Today Done'])
+
+    def test_week_and_pending(self):
+        response = self._get('?filter=week&status=pending')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        titles = self._titles(response)
+        self.assertIn('Today Pending', titles)
+        self.assertIn('Future Pending', titles)
+        self.assertNotIn('Today Done', titles)
+        self.assertNotIn('Future Done', titles)
+        self.assertEqual(len(response.data), 2)
+
+    def test_week_and_completed(self):
+        response = self._get('?filter=week&status=completed')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        titles = self._titles(response)
+        self.assertIn('Today Done', titles)
+        self.assertIn('Future Done', titles)
+        self.assertNotIn('Today Pending', titles)
+        self.assertNotIn('Future Pending', titles)
+        self.assertEqual(len(response.data), 2)
+
+    def test_month_and_pending(self):
+        response = self._get('?filter=month&status=pending')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        titles = self._titles(response)
+        self.assertIn('Today Pending', titles)
+        self.assertIn('Future Pending', titles)
+        self.assertNotIn('Today Done', titles)
+        self.assertNotIn('Future Done', titles)
+        self.assertNotIn('Other Pending', titles)
+        self.assertEqual(len(response.data), 2)
+
+    def test_month_and_completed_excludes_other_users(self):
+        """Status filter + time filter must still respect per-user scoping."""
+        response = self._get('?filter=month&status=pending')
+        titles = self._titles(response)
+        self.assertNotIn('Other Pending', titles)
+
+    def test_all_time_and_pending(self):
+        """No time filter + status=pending returns all pending tasks for user."""
+        response = self._get('?filter=all&status=pending')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        titles = self._titles(response)
+        self.assertIn('Today Pending', titles)
+        self.assertIn('Future Pending', titles)
+        self.assertNotIn('Today Done', titles)
+        self.assertNotIn('Future Done', titles)
+        self.assertEqual(len(response.data), 2)
+
+    def test_no_filters_returns_all_user_tasks(self):
+        """Bare endpoint with no params returns every task for the user."""
+        response = self._get('')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 4)
+
+    def test_staff_with_status_filter(self):
+        """Staff sees all users' tasks filtered by status."""
+        staff = self.create_user('staffs', 'staffs@test.com')
+        staff.is_staff = True
+        staff.save()
+        self.authenticate(staff.username)
+
+        response = self._get('?status=pending')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        titles = self._titles(response)
+        self.assertIn('Today Pending', titles)
+        self.assertIn('Future Pending', titles)
+        self.assertIn('Other Pending', titles)
+        self.assertNotIn('Today Done', titles)
+        self.assertNotIn('Future Done', titles)
+        self.assertEqual(len(response.data), 3)
+
+    def test_staff_with_filter_and_status(self):
+        """Staff + time filter + status: all three layers combine."""
+        staff = self.create_user('staffc', 'staffc@test.com')
+        staff.is_staff = True
+        staff.save()
+        self.authenticate(staff.username)
+
+        response = self._get('?filter=today&status=completed')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        titles = self._titles(response)
+        self.assertIn('Today Done', titles)
+        self.assertNotIn('Today Pending', titles)
+        self.assertNotIn('Other Pending', titles)
+        self.assertEqual(len(response.data), 1)
