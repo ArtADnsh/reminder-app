@@ -85,7 +85,7 @@ ASGI_APPLICATION = 'TODOList.asgi.application'
 
 CHANNEL_LAYERS = {
     'default': {
-        'BACKEND': 'channels_redis.core.RedisChannelLayer',
+        'BACKEND': 'channels_redis.pubsub.RedisPubSubChannelLayer',
         'CONFIG': {
             'hosts': [os.environ.get('CHANNEL_REDIS_URL', 'redis://redis:6379/0')],
         },
