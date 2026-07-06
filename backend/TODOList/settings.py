@@ -189,7 +189,7 @@ CELERY_TASK_SERIALIZER = 'json'
 CELERY_BEAT_SCHEDULE = {
     'check_and_send_reminders': {
         'task': 'tasks.tasks.check_and_send_reminders',
-        'schedule': 60.0 * 5,
+        'schedule': 60.0,
     },
 }
 
