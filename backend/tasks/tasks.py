@@ -1,6 +1,8 @@
 import logging
 
+from asgiref.sync import async_to_sync
 from celery import shared_task
+from channels.layers import get_channel_layer
 from django.conf import settings as django_settings
 from django.core.mail import send_mail
 from datetime import timedelta
@@ -49,6 +51,24 @@ def send_reminder_email(task_id):
                     task_id,
                     to_email,
                 )
+
+                try:
+                    channel_layer = get_channel_layer()
+                    async_to_sync(channel_layer.group_send)(
+                        f'user_notifications_{user_account.id}',
+                        {
+                            'type': 'notification_message',
+                            'title': task.title,
+                            'description': f'Reminder: {task.title}',
+                        },
+                    )
+                except Exception:
+                    logger.error(
+                        'Failed to send WebSocket notification: task_id=%s user_id=%s',
+                        task_id,
+                        user_account.id,
+                        exc_info=True,
+                    )
 
                 task.sent_reminders += 1
                 task.save()

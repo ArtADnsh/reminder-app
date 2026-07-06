@@ -33,6 +33,8 @@ ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(','
 # Application definition
 
 INSTALLED_APPS = [
+    'daphne',
+
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -79,6 +81,16 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'TODOList.wsgi.application'
+ASGI_APPLICATION = 'TODOList.asgi.application'
+
+CHANNEL_LAYERS = {
+    'default': {
+        'BACKEND': 'channels_redis.core.RedisChannelLayer',
+        'CONFIG': {
+            'hosts': [os.environ.get('CHANNEL_REDIS_URL', 'redis://redis:6379/0')],
+        },
+    },
+}
 
 
 # Database

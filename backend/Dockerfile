@@ -19,7 +19,7 @@ COPY requirements.txt /app/
 
 # Install python dependencies (including gunicorn for production)
 RUN pip install --no-cache-dir -r requirements.txt && \
-    pip install --no-cache-dir gunicorn
+    pip install --no-cache-dir gunicorn daphne
 
 # Copy the rest of the application code
 COPY . /app/
@@ -28,4 +28,4 @@ COPY . /app/
 EXPOSE 8000
 
 # Start Django with Gunicorn
-CMD ["gunicorn", "TODOList.wsgi:application", "--bind", "0.0.0.0:8000"]
+CMD ["daphne", "-b", "0.0.0.0", "-p", "8000", "TODOList.asgi:application"]
