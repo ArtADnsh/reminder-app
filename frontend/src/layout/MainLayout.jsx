@@ -32,6 +32,12 @@ export default function MainLayout() {
 
   return (
     <div className="flex h-screen bg-gray-50 overflow-hidden font-sans">
+      <style>{`
+        @keyframes dropdownFadeSlide {
+          from { opacity: 0; transform: translateY(-10px) scale(0.95); }
+          to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+      `}</style>
 
       {/* ---------------- سایدبار (دسکتاپ و موبایل) ---------------- */}
       <aside
@@ -67,7 +73,7 @@ export default function MainLayout() {
       <div className="flex-1 flex flex-col w-full">
 
         {/* هدر بالایی */}
-        <header className="h-20 bg-white shadow-sm flex items-center justify-between px-6 z-10">
+        <header className={`relative h-20 bg-white shadow-sm flex items-center justify-between px-6 ${isDropdownOpen ? 'z-[60]' : 'z-10'}`}>
           {/* دکمه همبرگری برای موبایل */}
           <button
             className="md:hidden text-gray-600 focus:outline-none"
@@ -103,7 +109,10 @@ export default function MainLayout() {
 
               {/* Dropdown Menu */}
               {isDropdownOpen && (
-                <div className="absolute left-0 sm:right-0 sm:left-auto mt-3 w-80 sm:w-96 bg-white rounded-2xl shadow-2xl border border-gray-100 z-50 overflow-hidden flex flex-col transform origin-top-left sm:origin-top-right transition-all animate-fade-in">
+                <div 
+                  className="fixed top-[75px] left-4 right-4 w-auto sm:absolute sm:top-full sm:mt-3 sm:left-0 sm:right-auto sm:w-96 bg-white rounded-2xl shadow-2xl border border-gray-100 z-50 overflow-hidden flex flex-col transform sm:origin-top-left"
+                  style={{ animation: 'dropdownFadeSlide 0.2s ease-out forwards' }}
+                >
                   <div className="px-5 py-4 border-b border-gray-100 bg-gray-50/80 flex justify-between items-center">
                     <h3 className="font-extrabold text-gray-800 text-base">اعلانات</h3>
                     {unreadCount > 0 && (
