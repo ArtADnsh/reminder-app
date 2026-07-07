@@ -8,25 +8,36 @@ from django.conf import settings as django_settings
 from django.core.mail import send_mail
 from django.utils import timezone
 
-from .models import Task
+from .models import Task, Notification
 
 logger = logging.getLogger(__name__)
 
 
 def _send_reminder(task):
-    """Send email and WebSocket notification safely without cross-blocking."""
+    """Send email, WebSocket notification, and persist a Notification record."""
     user = task.user
     subject = f'Task Reminder: {task.title}'
     message = f'This is a reminder to complete your task: {task.title}'
 
-    # 1. Try sending the Email (Don't let failures block WebSockets)
+    # 1. Try sending the Email (Don't let failures block other steps)
     try:
         send_mail(subject, message, django_settings.EMAIL_HOST_USER, [user.email])
         logger.info('Reminder email sent: task_id=%s recipient=%s', task.id, user.email)
     except Exception:
         logger.error('Failed to send reminder email: task_id=%s recipient=%s', task.id, user.email, exc_info=True)
 
-    # 2. Try sending the WebSocket Live Notification
+    # 2. Persist Notification record in the database
+    try:
+        Notification.objects.create(
+            user=user,
+            task=task,
+            title=subject,
+        )
+        logger.info('Notification persisted: task_id=%s user_id=%s', task.id, user.id)
+    except Exception:
+        logger.error('Failed to persist notification: task_id=%s user_id=%s', task.id, user.id, exc_info=True)
+
+    # 3. Try sending the WebSocket Live Notification
     try:
         channel_layer = get_channel_layer()
         async_to_sync(channel_layer.group_send)(
@@ -34,7 +45,6 @@ def _send_reminder(task):
             {
                 'type': 'notification_message',
                 'title': task.title,
-                'description': f'Reminder: {task.title}',
             },
         )
         logger.info('WebSocket notification dispatched: task_id=%s user_id=%s', task.id, user.id)

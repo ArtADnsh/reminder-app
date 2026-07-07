@@ -2,6 +2,7 @@ import calendar
 import logging
 from datetime import timedelta
 
+from rest_framework.decorators import action
 from rest_framework.viewsets import ModelViewSet
 from rest_framework.generics import CreateAPIView
 from rest_framework.views import APIView
@@ -15,8 +16,8 @@ from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from django.contrib.auth import get_user_model
 from django.utils import timezone
 
-from .models import Task
-from .serializers import TaskSerializer, SignUpSerializer, UserProfileSerializer, ChangePasswordSerializer
+from .models import Task, Notification
+from .serializers import TaskSerializer, SignUpSerializer, UserProfileSerializer, ChangePasswordSerializer, NotificationSerializer
 
 User = get_user_model()
 logger = logging.getLogger(__name__)
@@ -200,3 +201,41 @@ class ChangePasswordView(APIView):
         request.user.set_password(serializer.validated_data['new_password'])
         request.user.save()
         return Response({"msg": "Password changed successfully."}, status=status.HTTP_200_OK)
+
+
+# ==========================================
+# 4. Notifications
+# ==========================================
+class NotificationViewSet(ModelViewSet):
+    serializer_class = NotificationSerializer
+    permission_classes = [IsAuthenticated]
+    http_method_names = ['get', 'patch', 'post', 'delete']
+
+    def get_queryset(self):
+        return Notification.objects.filter(user=self.request.user)
+
+    def list(self, request, *args, **kwargs):
+        qs = self.get_queryset()
+        unread_only = request.query_params.get('unread')
+        if unread_only in ('1', 'true', 'True'):
+            qs = qs.filter(is_read=False)
+        page = self.paginate_queryset(qs)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+        return Response(self.get_serializer(qs, many=True).data)
+
+    @action(detail=True, methods=['patch'], url_path='mark-read')
+    def mark_read(self, request, pk=None):
+        notification = self.get_object()
+        notification.is_read = True
+        notification.save(update_fields=['is_read'])
+        return Response(self.get_serializer(notification).data)
+
+    @action(detail=False, methods=['post'], url_path='mark-all-read')
+    def mark_all_read(self, request):
+        updated = self.get_queryset().filter(is_read=False).update(is_read=True)
+        return Response({'marked_read': updated})
+
+    def perform_destroy(self, instance):
+        instance.delete()

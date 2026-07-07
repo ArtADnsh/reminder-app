@@ -4,7 +4,7 @@ from django.contrib.auth import get_user_model
 from datetime import timedelta
 from django.contrib.auth.password_validation import validate_password
 
-from .models import Task
+from .models import Task, Notification
 
 User = get_user_model()
 
@@ -146,3 +146,10 @@ class ChangePasswordSerializer(serializers.Serializer):
         if not user.check_password(value):
             raise serializers.ValidationError("Incorrect password.")
         return value
+
+
+class NotificationSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Notification
+        fields = ('id', 'task_id', 'title', 'is_read', 'created_at')
+        read_only_fields = ('id', 'created_at')
