@@ -6,6 +6,7 @@ import { useWebsocketNotifications } from '../hooks/useWebsocketNotifications';
 export default function MainLayout() {
   const { user, logout } = useContext(AuthContext);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isDesktopMenuOpen, setIsDesktopMenuOpen] = useState(true);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef(null);
   const location = useLocation();
@@ -42,12 +43,27 @@ export default function MainLayout() {
       {/* ---------------- سایدبار (دسکتاپ و موبایل) ---------------- */}
       <aside
         className={`${isMobileMenuOpen ? 'translate-x-0' : 'translate-x-full'} 
-        md:translate-x-0 fixed md:static inset-y-0 right-0 z-50 w-64 bg-secondary text-white transition-transform duration-300 ease-in-out shadow-2xl flex flex-col`}
+        md:translate-x-0 fixed md:static inset-y-0 right-0 z-50 ${isDesktopMenuOpen ? 'md:w-64' : 'md:w-0'} w-64 bg-secondary text-white transition-all duration-300 ease-in-out shadow-2xl flex flex-col overflow-hidden whitespace-nowrap`}
       >
-        <div className="flex items-center justify-center h-20 border-b border-gray-700">
+        <div className="flex items-center justify-between px-4 h-20 border-b border-gray-700">
           <h1 className="text-xl font-bold flex items-center gap-2">
             <span>⏳</span> سیستم یادآور
           </h1>
+          <button
+            onClick={() => {
+              if (window.innerWidth >= 768) {
+                setIsDesktopMenuOpen(false);
+              } else {
+                setIsMobileMenuOpen(false);
+              }
+            }}
+            className="text-gray-400 hover:text-white transition-colors focus:outline-none p-1 rounded-full hover:bg-gray-800"
+            title="بستن منو"
+          >
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7"></path>
+            </svg>
+          </button>
         </div>
 
         <nav className="flex-1 px-4 py-6 space-y-2">
@@ -74,18 +90,27 @@ export default function MainLayout() {
 
         {/* هدر بالایی */}
         <header className={`relative h-20 bg-white shadow-sm flex items-center justify-between px-6 ${isDropdownOpen ? 'z-[60]' : 'z-10'}`}>
-          {/* دکمه همبرگری برای موبایل */}
-          <button
-            className="md:hidden text-gray-600 focus:outline-none"
-            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-          >
-            <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16"></path>
-            </svg>
-          </button>
-
-          <div className="hidden md:block">
-            <h2 className="text-xl font-bold text-gray-800">پنل مدیریت</h2>
+          {/* سمت راست هدر: دکمه همبرگری (فقط برای باز کردن) و عنوان */}
+          <div className="flex items-center gap-4">
+            <button
+              className={`text-gray-600 focus:outline-none transition-all ${isMobileMenuOpen ? 'hidden' : 'block'} ${isDesktopMenuOpen ? 'md:hidden' : 'md:block'}`}
+              onClick={() => {
+                if (window.innerWidth >= 768) {
+                  setIsDesktopMenuOpen(true);
+                } else {
+                  setIsMobileMenuOpen(true);
+                }
+              }}
+              title="باز کردن منو"
+            >
+              <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16"></path>
+              </svg>
+            </button>
+  
+            <div className="hidden md:block">
+              <h2 className="text-xl font-bold text-gray-800">پنل مدیریت</h2>
+            </div>
           </div>
 
           <div className="flex items-center gap-4 sm:gap-6">
