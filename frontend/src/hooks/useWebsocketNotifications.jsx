@@ -1,21 +1,59 @@
 import { useState, useEffect, useRef } from 'react';
 import { toast } from 'react-toastify';
+import axiosInstance from '../api/axiosInstance';
 
 export const useWebsocketNotifications = (token) => {
   const [notifications, setNotifications] = useState([]);
   const wsRef = useRef(null);
   const reconnectTimeoutRef = useRef(null);
 
-  const markAsRead = (id) => {
-    setNotifications(prev => prev.map(n => n.id === id ? { ...n, isRead: true } : n));
+  useEffect(() => {
+    if (!token) return;
+    const fetchNotifications = async () => {
+      try {
+        const response = await axiosInstance.get('notifications/');
+        const data = response.data.results || response.data;
+        const results = Array.isArray(data) ? data : [];
+        
+        const mapped = results.map(n => ({
+          id: n.id,
+          title: n.title,
+          taskId: n.task_id,
+          isRead: n.is_read
+        }));
+        setNotifications(mapped);
+      } catch (error) {
+        console.error('Failed to fetch notifications:', error.response?.data || error.message || error);
+      }
+    };
+    fetchNotifications();
+  }, [token]);
+
+  const markAsRead = async (id) => {
+    try {
+      await axiosInstance.patch(`notifications/${id}/mark-read/`);
+      setNotifications(prev => prev.map(n => n.id === id ? { ...n, isRead: true } : n));
+    } catch (error) {
+      console.error('Error marking as read:', error.response?.data || error.message || error);
+    }
   };
 
-  const removeNotification = (id) => {
-    setNotifications(prev => prev.filter(n => n.id !== id));
+  const removeNotification = async (id) => {
+    try {
+      await axiosInstance.delete(`notifications/${id}/`);
+      setNotifications(prev => prev.filter(n => n.id !== id));
+    } catch (error) {
+      console.error('Error deleting notification:', error.response?.data || error.message || error);
+    }
   };
 
-  const markAllAsRead = () => {
-    setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
+  const markAllAsRead = async () => {
+    try {
+      await axiosInstance.post('notifications/mark-all-read/');
+      setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
+    } catch (error) {
+      console.error('Error marking all as read:', error.response?.data || error.message || error);
+    }
   };
 
   const unreadCount = notifications.filter(n => !n.isRead).length;
@@ -44,10 +82,10 @@ export const useWebsocketNotifications = (token) => {
           
           if (isComponentMounted) {
             const newNotif = {
-              id: Date.now() + Math.random(),
+              id: data.id || Date.now() + Math.random(),
               title: data.title || 'یادآور جدید',
-              description: data.message || data.description || '',
-              isRead: false
+              taskId: data.task_id || null,
+              isRead: data.is_read || false
             };
 
             setNotifications(prev => [newNotif, ...prev]);
@@ -58,7 +96,6 @@ export const useWebsocketNotifications = (token) => {
                 <strong className="text-gray-900 text-lg font-extrabold flex items-center gap-2">
                   <span className="text-primary text-xl">✨</span> {newNotif.title}
                 </strong>
-                <span className="text-gray-700 text-sm leading-relaxed">{newNotif.description}</span>
               </div>, 
               {
                 position: "top-right",

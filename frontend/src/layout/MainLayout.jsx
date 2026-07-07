@@ -170,8 +170,7 @@ export default function MainLayout() {
                     ) : (
                       notifications.map(notif => (
                         <div key={notif.id} className={`p-5 border-b border-gray-50 transition-colors ${notif.isRead ? 'bg-white opacity-70' : 'bg-blue-50/40'}`}>
-                          <h4 className={`text-sm font-bold mb-1 ${notif.isRead ? 'text-gray-700' : 'text-gray-900'}`}>{notif.title}</h4>
-                          <p className="text-xs text-gray-600 mb-3 leading-relaxed">{notif.description}</p>
+                          <h4 className={`text-sm font-bold mb-3 ${notif.isRead ? 'text-gray-700' : 'text-gray-900'}`}>{notif.title}</h4>
                           <div className="flex gap-2 justify-end">
                             {!notif.isRead && (
                               <button onClick={() => markAsRead(notif.id)} className="text-xs px-3 py-1.5 bg-primary/10 text-primary hover:bg-primary hover:text-white rounded-lg font-bold transition-all">
