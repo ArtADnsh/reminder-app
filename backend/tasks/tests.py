@@ -9,7 +9,6 @@ from datetime import timedelta
 from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
-from django.db.models.signals import post_save
 from django.test import TestCase
 from django.urls import reverse
 from django.utils import timezone
@@ -18,10 +17,7 @@ from rest_framework.test import APITestCase
 
 from .models import Task
 from .serializers import TaskSerializer
-from .tasks import check_and_send_reminders, schedule_first_reminder, send_reminder_email
-
-# Ensure the post_save signal that schedules Celery jobs is registered.
-import tasks.tasks  # noqa: F401
+from .tasks import check_and_send_reminders, _send_reminder
 
 User = get_user_model()
 
@@ -100,11 +96,6 @@ class AuthenticatedAPITestCase(BaseAPITestCase):
         self.other_user = self.create_user('otheruser', 'other@example.com')
 
         self.tokens = self.authenticate(self.user.username, self.password)
-
-        # Prevent post_save signal from reaching a real Redis broker during tests.
-        self._apply_async_patcher = patch('tasks.tasks.send_reminder_email.apply_async')
-        self._apply_async_patcher.start()
-        self.addCleanup(self._apply_async_patcher.stop)
 
 
 # ---------------------------------------------------------------------------
@@ -277,35 +268,25 @@ class TaskCRUDTests(AuthenticatedAPITestCase):
 
 
 # ---------------------------------------------------------------------------
-# 3. Celery mocking — no real Redis required
+# 3. Celery integration — no real Redis required
 # ---------------------------------------------------------------------------
 
 class CeleryIntegrationTests(AuthenticatedAPITestCase):
-    """
-    Verify Celery scheduling and revoke logic via mocks.
+    """Verify task lifecycle with the periodic-checker-only architecture."""
 
-    Patches target the exact import paths used in views.py and tasks.py so
-    no real broker connection is attempted during the test run.
-    """
-
-    @patch('tasks.tasks.send_reminder_email.apply_async')
-    def test_task_creation_schedules_celery_reminder(self, mock_apply_async):
-        """Creating a task should enqueue send_reminder_email via apply_async."""
+    def test_task_creation_persists_without_celery_scheduling(self):
+        """Creating a task stores it in DB; periodic checker handles dispatch."""
         payload = self.build_task_payload(title='Scheduled Task')
 
         response = self.client.post(self.tasks_list_url, payload, format='json')
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        task_id = response.data['id']
-        mock_apply_async.assert_called_once()
+        task = Task.objects.get(id=response.data['id'])
+        self.assertEqual(task.title, 'Scheduled Task')
+        self.assertFalse(task.is_done)
 
-        _, call_kwargs = mock_apply_async.call_args
-        self.assertEqual(call_kwargs['task_id'], f'task_{task_id}_reminder_0')
-        self.assertEqual(mock_apply_async.call_args[0][0], (task_id,))
-
-    @patch('tasks.views.celery_app.control.revoke')
-    def test_marking_task_done_revokes_celery_job(self, mock_revoke):
-        """Setting is_done=True should revoke the associated Celery task."""
+    def test_marking_task_done_persists(self):
+        """Setting is_done=True persists; periodic checker skips it."""
         task = Task.objects.create(user=self.user, title='Done Task', is_done=False)
 
         response = self.client.patch(
@@ -315,31 +296,16 @@ class CeleryIntegrationTests(AuthenticatedAPITestCase):
         )
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        mock_revoke.assert_called_once_with(f'task_{task.id}_reminder_0', terminate=True)
+        task.refresh_from_db()
+        self.assertTrue(task.is_done)
 
-    @patch('tasks.views.celery_app.control.revoke')
-    def test_marking_task_not_done_does_not_revoke(self, mock_revoke):
-        """Updating fields other than completion should not revoke Celery jobs."""
-        task = Task.objects.create(user=self.user, title='Still Active', is_done=False)
-
-        response = self.client.patch(
-            self.task_detail_url(task.id),
-            {'title': 'Renamed Task'},
-            format='json',
-        )
-
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        mock_revoke.assert_not_called()
-
-    @patch('tasks.views.celery_app.control.revoke')
-    def test_deleting_task_revokes_celery_job(self, mock_revoke):
-        """Deleting a task should revoke its Celery job before DB removal."""
+    def test_delete_removes_task(self):
+        """Deleting a task removes it from DB."""
         task = Task.objects.create(user=self.user, title='Delete Me')
 
         response = self.client.delete(self.task_detail_url(task.id))
 
         self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
-        mock_revoke.assert_called_once_with(f'task_{task.id}_reminder_0', terminate=True)
         self.assertFalse(Task.objects.filter(id=task.id).exists())
 
 
@@ -373,10 +339,6 @@ class TaskSerializerTests(TestCase):
     @classmethod
     def setUpTestData(cls):
         cls.user = User.objects.create_user('serializeruser', 'ser@test.com', 'SecurePass123!')
-
-    def setUp(self):
-        post_save.disconnect(schedule_first_reminder, sender=Task)
-        self.addCleanup(post_save.connect, schedule_first_reminder, sender=Task)
 
     def _serialize(self, task):
         return TaskSerializer(task).data
@@ -596,7 +558,7 @@ class LogoutViewTests(AuthenticatedAPITestCase):
 
 class CeleryTaskUnitTests(TestCase):
     """
-    Directly invoke send_reminder_email and check_and_send_reminders
+    Directly invoke _send_reminder and check_and_send_reminders
     to cover the reminder dispatch logic without a real Redis broker.
     """
 
@@ -606,122 +568,43 @@ class CeleryTaskUnitTests(TestCase):
             'celeryuser', 'celery@test.com', 'SecurePass123!',
         )
 
-    def setUp(self):
-        # Prevent post_save from scheduling Celery jobs during fixture setup.
-        post_save.disconnect(schedule_first_reminder, sender=Task)
-        self.addCleanup(post_save.connect, schedule_first_reminder, sender=Task)
+    # ---- _send_reminder -----------------------------------------------------
 
-    # ---- send_reminder_email ------------------------------------------------
-
-    @patch('tasks.tasks.send_reminder_email.apply_async')
     @patch('tasks.tasks.send_mail')
-    def test_send_reminder_email_sends_mail_when_due(self, mock_send_mail, mock_apply_async):
-        """Due task sends email and increments sent_reminders."""
+    def test_send_reminder_sends_email(self, mock_send_mail):
+        """_send_reminder dispatches email with correct content."""
         task = Task.objects.create(
             user=self.user,
-            title='Due Now',
-            first_reminder=timezone.now() - timedelta(minutes=5),
-            repeat_reminder=1,
+            title='Email Test',
+            first_reminder=timezone.now(),
             is_done=False,
         )
 
-        send_reminder_email(task.id)
+        _send_reminder(task)
 
         mock_send_mail.assert_called_once()
         subject, message, from_email, recipient_list = mock_send_mail.call_args[0]
-        self.assertIn('Due Now', subject)
+        self.assertIn('Email Test', subject)
         self.assertEqual(recipient_list, [self.user.email])
-        task.refresh_from_db()
-        self.assertEqual(task.sent_reminders, 1)
-        mock_apply_async.assert_not_called()
 
-    @patch('tasks.tasks.send_reminder_email.apply_async')
     @patch('tasks.tasks.send_mail')
-    def test_send_reminder_email_schedules_next_repeat(self, mock_send_mail, mock_apply_async):
-        """Remaining repeats schedule the next apply_async call."""
+    def test_email_failure_does_not_block_ws(self, mock_send_mail):
+        """Email failure must not prevent WebSocket dispatch."""
+        mock_send_mail.side_effect = Exception('SMTP down')
         task = Task.objects.create(
             user=self.user,
-            title='Repeating Task',
-            first_reminder=timezone.now() - timedelta(minutes=5),
-            repeat_reminder=3,
-            time_between_reminders=10,
+            title='WS Only',
+            first_reminder=timezone.now(),
             is_done=False,
         )
 
-        send_reminder_email(task.id)
-
-        mock_send_mail.assert_called_once()
-        mock_apply_async.assert_called_once()
-        call_args, call_kwargs = mock_apply_async.call_args
-        self.assertEqual(call_args[0], (task.id,))
-        self.assertEqual(call_kwargs['task_id'], f'task_{task.id}_reminder_1')
-        task.refresh_from_db()
-        self.assertEqual(task.sent_reminders, 1)
-
-    @patch('tasks.tasks.send_reminder_email.apply_async')
-    @patch('tasks.tasks.send_mail')
-    def test_send_reminder_email_reschedules_when_not_yet_due(self, mock_send_mail, mock_apply_async):
-        """Future reminder re-enqueues itself at first_reminder."""
-        future = timezone.now() + timedelta(hours=2)
-        task = Task.objects.create(
-            user=self.user,
-            title='Future Task',
-            first_reminder=future,
-            repeat_reminder=2,
-            time_between_reminders=15,
-            is_done=False,
-        )
-
-        send_reminder_email(task.id)
-
-        mock_send_mail.assert_not_called()
-        mock_apply_async.assert_called_once()
-        _, call_kwargs = mock_apply_async.call_args
-        self.assertEqual(call_kwargs['task_id'], f'task_{task.id}_reminder_0')
-
-    @patch('tasks.tasks.send_mail')
-    def test_send_reminder_email_skips_completed_task(self, mock_send_mail):
-        """is_done tasks skip all reminder logic."""
-        task = Task.objects.create(
-            user=self.user,
-            title='Already Done',
-            first_reminder=timezone.now() - timedelta(minutes=5),
-            repeat_reminder=1,
-            is_done=True,
-        )
-
-        send_reminder_email(task.id)
-
-        mock_send_mail.assert_not_called()
-
-    @patch('tasks.tasks.send_mail')
-    def test_send_reminder_email_skips_null_first_reminder(self, mock_send_mail):
-        """Tasks without first_reminder are skipped."""
-        task = Task.objects.create(
-            user=self.user,
-            title='No Reminder',
-            repeat_reminder=1,
-            is_done=False,
-        )
-
-        send_reminder_email(task.id)
-
-        mock_send_mail.assert_not_called()
-
-    def test_send_reminder_email_handles_missing_task(self):
-        """DoesNotExist is caught gracefully."""
-        with self.assertLogs('tasks.tasks', level='ERROR') as log_context:
-            send_reminder_email(999999)
-
-        self.assertTrue(
-            any('999999' in message for message in log_context.output),
-            log_context.output,
-        )
+        # Should not raise — email failure is caught internally
+        _send_reminder(task)
 
     # ---- check_and_send_reminders (periodic, direct execution) ---------------
 
     @patch('tasks.tasks.send_mail')
-    def test_check_and_send_reminders_sends_first_reminder(self, mock_send_mail):
+    def test_sends_first_reminder(self, mock_send_mail):
         """First reminder (sent_reminders=0): sends when now >= first_reminder."""
         task = Task.objects.create(
             user=self.user,
@@ -740,7 +623,7 @@ class CeleryTaskUnitTests(TestCase):
         self.assertEqual(task.sent_reminders, 1)
 
     @patch('tasks.tasks.send_mail')
-    def test_check_and_send_reminders_sends_repeated_reminder(self, mock_send_mail):
+    def test_sends_repeated_reminder(self, mock_send_mail):
         """Repeated reminder: sends when now >= first + (sent * interval)."""
         task = Task.objects.create(
             user=self.user,
@@ -751,7 +634,6 @@ class CeleryTaskUnitTests(TestCase):
             sent_reminders=1,
             is_done=False,
         )
-        # next_scheduled = first_reminder + 1*10min = 20min ago → due
 
         check_and_send_reminders()
 
@@ -760,7 +642,7 @@ class CeleryTaskUnitTests(TestCase):
         self.assertEqual(task.sent_reminders, 2)
 
     @patch('tasks.tasks.send_mail')
-    def test_check_and_send_reminders_skips_not_yet_due(self, mock_send_mail):
+    def test_skips_not_yet_due_first(self, mock_send_mail):
         """Future first_reminder is not triggered."""
         Task.objects.create(
             user=self.user,
@@ -777,7 +659,7 @@ class CeleryTaskUnitTests(TestCase):
         mock_send_mail.assert_not_called()
 
     @patch('tasks.tasks.send_mail')
-    def test_check_and_send_reminders_skips_not_yet_due_repeat(self, mock_send_mail):
+    def test_skips_not_yet_due_repeat(self, mock_send_mail):
         """Future repeated reminder is not triggered."""
         Task.objects.create(
             user=self.user,
@@ -788,14 +670,13 @@ class CeleryTaskUnitTests(TestCase):
             sent_reminders=1,
             is_done=False,
         )
-        # next_scheduled = first + 1*60min = 55min from now → not due
 
         check_and_send_reminders()
 
         mock_send_mail.assert_not_called()
 
     @patch('tasks.tasks.send_mail')
-    def test_check_and_send_reminders_skips_completed(self, mock_send_mail):
+    def test_skips_completed(self, mock_send_mail):
         """is_done=True tasks are excluded."""
         Task.objects.create(
             user=self.user,
@@ -811,7 +692,7 @@ class CeleryTaskUnitTests(TestCase):
         mock_send_mail.assert_not_called()
 
     @patch('tasks.tasks.send_mail')
-    def test_check_and_send_reminders_skips_null_first_reminder(self, mock_send_mail):
+    def test_skips_null_first_reminder(self, mock_send_mail):
         """Tasks with first_reminder=null are excluded from query."""
         Task.objects.create(
             user=self.user,
@@ -826,7 +707,7 @@ class CeleryTaskUnitTests(TestCase):
         mock_send_mail.assert_not_called()
 
     @patch('tasks.tasks.send_mail')
-    def test_check_and_send_reminders_skips_when_all_repeats_sent(self, mock_send_mail):
+    def test_skips_when_all_repeats_sent(self, mock_send_mail):
         """sent_reminders >= repeat_reminder skips the task."""
         Task.objects.create(
             user=self.user,
@@ -843,7 +724,7 @@ class CeleryTaskUnitTests(TestCase):
         mock_send_mail.assert_not_called()
 
     @patch('tasks.tasks.send_mail')
-    def test_check_and_send_reminders_handles_multiple_tasks(self, mock_send_mail):
+    def test_handles_multiple_tasks(self, mock_send_mail):
         """Multiple eligible tasks all get their reminders sent."""
         Task.objects.create(
             user=self.user,
@@ -882,9 +763,6 @@ class TaskFilterTests(AuthenticatedAPITestCase):
 
     def setUp(self):
         super().setUp()
-        # Prevent Celery scheduling during fixture creation.
-        post_save.disconnect(schedule_first_reminder, sender=Task)
-        self.addCleanup(post_save.connect, schedule_first_reminder, sender=Task)
 
         now = timezone.now()
         today = now.date()
@@ -1086,8 +964,6 @@ class TaskStatusFilterTests(AuthenticatedAPITestCase):
 
     def setUp(self):
         super().setUp()
-        post_save.disconnect(schedule_first_reminder, sender=Task)
-        self.addCleanup(post_save.connect, schedule_first_reminder, sender=Task)
 
         now = timezone.now()
 

@@ -12,8 +12,6 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
-from TODOList.celery import app as celery_app
-
 from django.contrib.auth import get_user_model
 from django.utils import timezone
 
@@ -22,21 +20,6 @@ from .serializers import TaskSerializer, SignUpSerializer, UserProfileSerializer
 
 User = get_user_model()
 logger = logging.getLogger(__name__)
-
-
-def _revoke_celery_task(task_instance):
-    """Revoke all pending Celery reminders for the given task."""
-    for i in range(task_instance.sent_reminders, task_instance.repeat_reminder or 1):
-        celery_task_id = f"task_{task_instance.id}_reminder_{i}"
-        try:
-            celery_app.control.revoke(celery_task_id, terminate=True)
-        except Exception:
-            logger.error(
-                'Failed to revoke Celery task: celery_task_id=%s',
-                celery_task_id,
-                exc_info=True,
-            )
-            raise
 
 
 # ==========================================
@@ -85,8 +68,6 @@ class TaskViewSet(ModelViewSet):
             instance.id,
         )
 
-    # ------------ بخش برای Revoke کردن ------------
-
     def perform_update(self, serializer):
         instance = serializer.save()
         logger.info(
@@ -95,15 +76,10 @@ class TaskViewSet(ModelViewSet):
             instance.id,
             instance.is_done,
         )
-        # اگر کاربر تسک را به عنوان انجام‌شده تیک زد، یادآور لغو شود
-        if instance.is_done:
-            _revoke_celery_task(instance)
 
     def perform_destroy(self, instance):
         user_id = self.request.user.id
         task_id = instance.id
-        # قبل از حذف کردن تسک از دیتابیس، پردازش آن را در سلری لغو کن
-        _revoke_celery_task(instance)
         instance.delete()
         logger.info(
             'Task deleted: user_id=%s task_id=%s',
