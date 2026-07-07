@@ -8,17 +8,22 @@ export default function MainLayout() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isDesktopMenuOpen, setIsDesktopMenuOpen] = useState(true);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
   const dropdownRef = useRef(null);
+  const profileDropdownRef = useRef(null);
   const location = useLocation();
 
   const token = localStorage.getItem('access_token');
   const { notifications, unreadCount, markAsRead, removeNotification, markAllAsRead } = useWebsocketNotifications(token);
 
-  // Close dropdown when clicking outside
+  // Close dropdowns when clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
         setIsDropdownOpen(false);
+      }
+      if (profileDropdownRef.current && !profileDropdownRef.current.contains(event.target)) {
+        setIsProfileDropdownOpen(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -109,7 +114,18 @@ export default function MainLayout() {
             </button>
   
             <div className="hidden md:block">
-              <h2 className="text-xl font-bold text-gray-800">پنل مدیریت</h2>
+              <Link 
+                to="/"
+                onClick={(e) => {
+                  if (location.pathname === '/') {
+                    e.preventDefault();
+                    window.location.href = '/';
+                  }
+                }}
+                className="text-xl font-bold text-gray-800 hover:text-primary transition-colors cursor-pointer block"
+              >
+                پنل مدیریت
+              </Link>
             </div>
           </div>
 
@@ -185,19 +201,54 @@ export default function MainLayout() {
 
             <div className="hidden sm:block border-l border-gray-200 h-8"></div>
 
-            <div className="text-left hidden sm:block">
-              <p className="text-sm font-bold text-gray-800">{user?.username}</p>
-              <p className="text-xs text-gray-500">کاربر سیستم</p>
+            <div className="relative" ref={profileDropdownRef}>
+              <div 
+                onClick={() => setIsProfileDropdownOpen(!isProfileDropdownOpen)}
+                className="flex items-center gap-3 cursor-pointer group hover:bg-gray-50 p-1.5 rounded-xl transition-colors"
+              >
+                <div className="text-left hidden sm:block">
+                  <p className="text-sm font-bold text-gray-800 group-hover:text-primary transition-colors">{user?.username}</p>
+                  <p className="text-xs text-gray-500">کاربر سیستم</p>
+                </div>
+                <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center text-white font-bold text-lg shadow-md group-hover:bg-blue-600 group-hover:scale-105 transition-all">
+                  {user?.username?.charAt(0).toUpperCase()}
+                </div>
+              </div>
+
+              {isProfileDropdownOpen && (
+                <div 
+                  className="absolute left-0 mt-2 w-56 bg-white rounded-2xl shadow-2xl border border-gray-100 z-50 overflow-hidden flex flex-col transform origin-top-left"
+                  style={{ animation: 'dropdownFadeSlide 0.2s ease-out forwards' }}
+                >
+                  <div className="px-4 py-3 border-b border-gray-100 bg-gray-50/50">
+                    <p className="text-sm font-bold text-gray-800 truncate">{user?.username}</p>
+                    <p className="text-xs text-gray-500 truncate mt-0.5 text-left" dir="ltr">{user?.email || 'ایمیل ثبت نشده'}</p>
+                  </div>
+                  
+                  <div className="p-2 flex flex-col gap-1">
+                    <Link
+                      to="/profile"
+                      onClick={() => setIsProfileDropdownOpen(false)}
+                      className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 hover:text-primary rounded-xl transition-colors"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
+                      </svg>
+                      پروفایل من
+                    </Link>
+                    <button
+                      onClick={logout}
+                      className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50 rounded-xl transition-colors w-full text-right"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path>
+                      </svg>
+                      خروج از حساب
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
-            <Link to="/profile" className="w-10 h-10 rounded-full bg-primary flex items-center justify-center text-white font-bold text-lg shadow-md hover:bg-blue-600 hover:scale-105 transition-all cursor-pointer">
-              {user?.username?.charAt(0).toUpperCase()}
-            </Link>
-            <button
-              onClick={logout}
-              className="ml-2 px-4 py-2 bg-red-50 text-red-600 hover:bg-red-500 hover:text-white rounded-lg text-sm font-bold transition-colors"
-            >
-              خروج
-            </button>
           </div>
         </header>
 
