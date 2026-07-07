@@ -15,7 +15,7 @@ from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APITestCase
 
-from .models import Task
+from .models import Task, Notification
 from .serializers import TaskSerializer
 from .tasks import check_and_send_reminders, _send_reminder
 
@@ -1309,3 +1309,291 @@ class UserProfileTests(AuthenticatedAPITestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn('old_password', response.data)
         self.assertIn('new_password', response.data)
+
+
+# ---------------------------------------------------------------------------
+# 11. Notification system — model, API, and Celery integration
+# ---------------------------------------------------------------------------
+
+class NotificationModelTests(TestCase):
+    """Test Notification model behaviour in isolation."""
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.user = User.objects.create_user('notifuser', 'notif@test.com', 'SecurePass123!')
+
+    def test_create_notification(self):
+        notif = Notification.objects.create(
+            user=self.user,
+            title='Test Alert',
+        )
+        self.assertEqual(notif.user, self.user)
+        self.assertEqual(notif.title, 'Test Alert')
+        self.assertFalse(notif.is_read)
+        self.assertIsNone(notif.task)
+
+    def test_create_notification_with_task(self):
+        task = Task.objects.create(user=self.user, title='My Task')
+        notif = Notification.objects.create(
+            user=self.user,
+            task=task,
+            title='Task Alert',
+        )
+        self.assertEqual(notif.task, task)
+        self.assertEqual(notif.task_id, task.id)
+
+    def test_task_deletion_nulls_notification_fk(self):
+        """on_delete=SET_NULL must clear the task FK, not delete the notification."""
+        task = Task.objects.create(user=self.user, title='Doomed Task')
+        notif = Notification.objects.create(
+            user=self.user,
+            task=task,
+            title='Link Test',
+        )
+        task.delete()
+
+        notif.refresh_from_db()
+        self.assertIsNone(notif.task)
+        self.assertTrue(Notification.objects.filter(pk=notif.pk).exists())
+
+    def test_notification_str(self):
+        notif = Notification.objects.create(user=self.user, title='Hello')
+        self.assertIn('Hello', str(notif))
+        self.assertIn('notifuser', str(notif))
+
+
+class NotificationAPITests(AuthenticatedAPITestCase):
+    """Test the /api/notifications/ endpoints."""
+
+    def setUp(self):
+        super().setUp()
+        self.notif_url = reverse('notification-list')
+        self.task = Task.objects.create(user=self.user, title='Notif Task')
+
+    def _create(self, **overrides):
+        defaults = {'user': self.user, 'title': 'Alert'}
+        defaults.update(overrides)
+        return Notification.objects.create(**defaults)
+
+    # ---- Auth ---------------------------------------------------------------
+
+    def test_unauthenticated_list_returns_401(self):
+        self.client.credentials()
+        response = self.client.get(self.notif_url)
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_unauthenticated_mark_read_returns_401(self):
+        self.client.credentials()
+        notif = self._create()
+        url = reverse('notification-mark-read', kwargs={'pk': notif.pk})
+        response = self.client.patch(url)
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_unauthenticated_mark_all_read_returns_401(self):
+        self.client.credentials()
+        url = reverse('notification-mark-all-read')
+        response = self.client.post(url)
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_unauthenticated_delete_returns_401(self):
+        self.client.credentials()
+        notif = self._create()
+        url = reverse('notification-detail', kwargs={'pk': notif.pk})
+        response = self.client.delete(url)
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    # ---- GET /api/notifications/ --------------------------------------------
+
+    def _results(self, response):
+        """Handle both paginated ({results: [...]}) and plain list responses."""
+        if isinstance(response.data, dict) and 'results' in response.data:
+            return response.data['results']
+        return response.data
+
+    def test_list_returns_own_notifications(self):
+        self._create(title='Mine')
+        Notification.objects.create(user=self.other_user, title='Theirs')
+
+        response = self.client.get(self.notif_url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        results = self._results(response)
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0]['title'], 'Mine')
+
+    def test_list_ordered_newest_first(self):
+        old = self._create(title='Old')
+        old.created_at = timezone.now() - timedelta(hours=1)
+        old.save(update_fields=['created_at'])
+        new = self._create(title='New')
+
+        response = self.client.get(self.notif_url)
+
+        titles = [r['title'] for r in self._results(response)]
+        self.assertEqual(titles, ['New', 'Old'])
+
+    def test_list_includes_task_id(self):
+        notif = self._create(task=self.task, title='With Task')
+
+        response = self.client.get(self.notif_url)
+
+        self.assertEqual(self._results(response)[0]['task_id'], self.task.id)
+
+    def test_list_includes_task_id_null(self):
+        notif = self._create(title='No Task')
+
+        response = self.client.get(self.notif_url)
+
+        self.assertIsNone(self._results(response)[0]['task_id'])
+
+    def test_list_unread_filter(self):
+        self._create(title='Read', is_read=True)
+        self._create(title='Unread', is_read=False)
+
+        response = self.client.get(f'{self.notif_url}?unread=1')
+
+        titles = [r['title'] for r in self._results(response)]
+        self.assertEqual(titles, ['Unread'])
+
+    # ---- PATCH /api/notifications/<id>/mark-read/ ---------------------------
+
+    def test_mark_read_sets_is_read_true(self):
+        notif = self._create(is_read=False)
+        url = reverse('notification-mark-read', kwargs={'pk': notif.pk})
+
+        response = self.client.patch(url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertTrue(response.data['is_read'])
+        notif.refresh_from_db()
+        self.assertTrue(notif.is_read)
+
+    def test_mark_read_other_users_notification_returns_404(self):
+        other_notif = Notification.objects.create(
+            user=self.other_user, title='Not Mine',
+        )
+        url = reverse('notification-mark-read', kwargs={'pk': other_notif.pk})
+
+        response = self.client.patch(url)
+
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    # ---- POST /api/notifications/mark-all-read/ -----------------------------
+
+    def test_mark_all_read_updates_all_user_notifications(self):
+        self._create(title='A', is_read=False)
+        self._create(title='B', is_read=False)
+        self._create(title='C', is_read=True)
+        url = reverse('notification-mark-all-read')
+
+        response = self.client.post(url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['marked_read'], 2)
+        self.assertEqual(
+            Notification.objects.filter(user=self.user, is_read=False).count(), 0,
+        )
+
+    def test_mark_all_read_does_not_affect_other_users(self):
+        self._create(title='Mine', is_read=False)
+        Notification.objects.create(
+            user=self.other_user, title='Theirs', is_read=False,
+        )
+        url = reverse('notification-mark-all-read')
+
+        self.client.post(url)
+
+        self.assertFalse(
+            Notification.objects.get(user=self.other_user, title='Theirs').is_read,
+        )
+
+    # ---- DELETE /api/notifications/<id>/ ------------------------------------
+
+    def test_delete_own_notification(self):
+        notif = self._create()
+        url = reverse('notification-detail', kwargs={'pk': notif.pk})
+
+        response = self.client.delete(url)
+
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertFalse(Notification.objects.filter(pk=notif.pk).exists())
+
+    def test_delete_other_users_notification_returns_404(self):
+        other_notif = Notification.objects.create(
+            user=self.other_user, title='Protected',
+        )
+        url = reverse('notification-detail', kwargs={'pk': other_notif.pk})
+
+        response = self.client.delete(url)
+
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+        self.assertTrue(Notification.objects.filter(pk=other_notif.pk).exists())
+
+
+class NotificationCeleryTests(TestCase):
+    """Test that _send_reminder persists Notification records."""
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.user = User.objects.create_user('celnotif', 'celnotif@test.com', 'SecurePass123!')
+
+    @patch('tasks.tasks.send_mail')
+    def test_send_reminder_creates_notification(self, mock_send_mail):
+        task = Task.objects.create(
+            user=self.user, title='Reminder Task',
+            first_reminder=timezone.now() - timedelta(minutes=5),
+            is_done=False,
+        )
+
+        _send_reminder(task)
+
+        notif = Notification.objects.get(user=self.user)
+        self.assertEqual(notif.task, task)
+        self.assertIn('Reminder Task', notif.title)
+        self.assertFalse(notif.is_read)
+
+    @patch('tasks.tasks.send_mail')
+    def test_send_reminder_notification_persists_on_email_failure(self, mock_send_mail):
+        """Email failure must not prevent Notification creation."""
+        mock_send_mail.side_effect = Exception('SMTP down')
+        task = Task.objects.create(
+            user=self.user, title='Fail Email Task',
+            first_reminder=timezone.now() - timedelta(minutes=5),
+            is_done=False,
+        )
+
+        _send_reminder(task)
+
+        self.assertTrue(Notification.objects.filter(user=self.user, task=task).exists())
+
+    @patch('tasks.tasks.get_channel_layer')
+    @patch('tasks.tasks.send_mail')
+    def test_send_reminder_notification_persists_on_ws_failure(self, mock_send_mail, mock_channel):
+        """WebSocket failure must not prevent Notification creation."""
+        mock_channel.return_value.group_send.side_effect = Exception('Redis down')
+        task = Task.objects.create(
+            user=self.user, title='Fail WS Task',
+            first_reminder=timezone.now() - timedelta(minutes=5),
+            is_done=False,
+        )
+
+        _send_reminder(task)
+
+        self.assertTrue(Notification.objects.filter(user=self.user, task=task).exists())
+
+    @patch('tasks.tasks.Notification.objects.create')
+    @patch('tasks.tasks.send_mail')
+    def test_send_reminder_survives_db_error(self, mock_send_mail, mock_create):
+        """DB error during Notification.create must be caught, not crash the pipeline."""
+        mock_create.side_effect = Exception('DB exploded')
+        task = Task.objects.create(
+            user=self.user, title='DB Fail Task',
+            first_reminder=timezone.now() - timedelta(minutes=5),
+            is_done=False,
+        )
+
+        # Should not raise
+        _send_reminder(task)
+
+        # Email was still attempted
+        mock_send_mail.assert_called_once()
