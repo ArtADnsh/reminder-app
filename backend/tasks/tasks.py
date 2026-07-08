@@ -27,13 +27,14 @@ def _send_reminder(task):
         logger.error('Failed to send reminder email: task_id=%s recipient=%s', task.id, user.email, exc_info=True)
 
     # 2. Persist Notification record in the database
+    notif = None
     try:
-        Notification.objects.create(
+        notif = Notification.objects.create(
             user=user,
             task=task,
             title=subject,
         )
-        logger.info('Notification persisted: task_id=%s user_id=%s', task.id, user.id)
+        logger.info('Notification persisted: task_id=%s notif_id=%s', task.id, notif.id)
     except Exception:
         logger.error('Failed to persist notification: task_id=%s user_id=%s', task.id, user.id, exc_info=True)
 
@@ -44,7 +45,9 @@ def _send_reminder(task):
             f'user_notifications_{user.id}',
             {
                 'type': 'notification_message',
-                'title': task.title,
+                'id': notif.id if notif else None,
+                'task_id': task.id,
+                'title': subject,
             },
         )
         logger.info('WebSocket notification dispatched: task_id=%s user_id=%s', task.id, user.id)
