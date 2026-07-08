@@ -7,6 +7,7 @@ export const useWebsocketNotifications = (token) => {
   const wsRef = useRef(null);
   const reconnectTimeoutRef = useRef(null);
 
+  // 1. Fetch Initial History via REST
   useEffect(() => {
     if (!token) return;
     const fetchNotifications = async () => {
@@ -29,6 +30,7 @@ export const useWebsocketNotifications = (token) => {
     fetchNotifications();
   }, [token]);
 
+  // 2. State Mutation Actions
   const markAsRead = async (id) => {
     try {
       await axiosInstance.patch(`notifications/${id}/mark-read/`);
@@ -58,6 +60,7 @@ export const useWebsocketNotifications = (token) => {
 
   const unreadCount = notifications.filter(n => !n.isRead).length;
 
+  // 3. WebSocket Live Connection
   useEffect(() => {
     if (!token) return;
 
@@ -65,16 +68,11 @@ export const useWebsocketNotifications = (token) => {
     
     const connect = () => {
       const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      // In dev with vite proxy or production with nginx, the host will route `/ws/`
       const host = window.location.host;
       const wsUrl = `${wsProtocol}//${host}/ws/notifications/?token=${token}`;
       
       const ws = new WebSocket(wsUrl);
       wsRef.current = ws;
-
-      ws.onopen = () => {
-        console.log('WebSocket connected for notifications.');
-      };
 
       ws.onmessage = (event) => {
         try {
@@ -82,19 +80,23 @@ export const useWebsocketNotifications = (token) => {
           
           if (isComponentMounted) {
             const newNotif = {
-              id: data.id || Date.now() + Math.random(),
+              id: data.id, // Strict dependency on database ID
               title: data.title || 'یادآور جدید',
               taskId: data.task_id || null,
               isRead: data.is_read || false
             };
 
+            // Developer warning if backend breaks the contract
+            if (!newNotif.id) {
+              console.warn('⚠️ Warning: Backend did not send the database ID!');
+            }
+
             setNotifications(prev => [newNotif, ...prev]);
 
-            // Display a beautiful custom floating popup using Toastify
             toast(
               <div className="flex flex-col gap-2" dir="rtl">
                 <strong className="text-gray-900 text-lg font-extrabold flex items-center gap-2">
-                  <span className="text-primary text-xl">✨</span> {newNotif.title}
+                  <span className="text-primary text-xl">🔔</span> {newNotif.title}
                 </strong>
               </div>, 
               {
@@ -114,9 +116,7 @@ export const useWebsocketNotifications = (token) => {
       };
 
       ws.onclose = (event) => {
-        console.log('WebSocket disconnected. Attempting reconnect...', event.reason);
         if (isComponentMounted) {
-          // Automatic reconnect with backoff
           reconnectTimeoutRef.current = setTimeout(() => {
             connect();
           }, 5000);
@@ -135,7 +135,6 @@ export const useWebsocketNotifications = (token) => {
       isComponentMounted = false;
       if (reconnectTimeoutRef.current) clearTimeout(reconnectTimeoutRef.current);
       if (wsRef.current) {
-        // Clean close code to avoid leaking
         wsRef.current.close(1000, 'Component unmounting');
       }
     };
