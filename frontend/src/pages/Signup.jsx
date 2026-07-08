@@ -47,11 +47,29 @@ export default function Signup() {
       login(loginRes.data); 
       navigate('/');
     } catch (err) {
-      // استخراج پیام خطای جنگو (مثلا: "نام کاربری قبلا استفاده شده است")
-      const errorMsg =
-        err.response?.data?.username?.[0] ||
-        err.response?.data?.detail ||
-        'خطایی در ثبت‌نام رخ داد. لطفا نام کاربری دیگری امتحان کنید.';
+      let errorMsg = 'خطایی در ثبت‌نام رخ داد. لطفا نام کاربری دیگری امتحان کنید.';
+      
+      if (err.response && err.response.data) {
+        const data = err.response.data;
+        if (data.password && data.password.length > 0) {
+          errorMsg = data.password[0];
+        } else if (data.username && data.username.length > 0) {
+          errorMsg = data.username[0];
+        } else if (data.email && data.email.length > 0) {
+          errorMsg = data.email[0];
+        } else if (data.non_field_errors && data.non_field_errors.length > 0) {
+          errorMsg = data.non_field_errors[0];
+        } else if (data.detail) {
+          errorMsg = data.detail;
+        } else if (typeof data === 'object') {
+          const firstKey = Object.keys(data)[0];
+          if (firstKey && Array.isArray(data[firstKey])) {
+            errorMsg = data[firstKey][0];
+          } else if (typeof data[firstKey] === 'string') {
+            errorMsg = data[firstKey];
+          }
+        }
+      }
       setError(errorMsg);
       toast.error(errorMsg);
     } finally {
