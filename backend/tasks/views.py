@@ -40,7 +40,7 @@ class TaskViewSet(ModelViewSet):
             qs = Task.objects.all()
 
         filter_value = self.request.query_params.get('filter')
-        today = timezone.now().date()
+        today = timezone.localdate()
 
         if filter_value == 'today':
             qs = qs.filter(first_reminder__date=today)
