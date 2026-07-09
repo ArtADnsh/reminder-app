@@ -10,12 +10,7 @@ yarn-error.log*
 .idea/
 .vscode/
 
-# Sensitive data and logs
-.env
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
+# logs
 *.log
 
 # Docker files

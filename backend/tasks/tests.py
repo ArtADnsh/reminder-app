@@ -6,7 +6,7 @@ integration (mocked — no real Redis broker required).
 """
 
 from datetime import timedelta
-from unittest.mock import patch
+from unittest.mock import patch, MagicMock
 
 from django.contrib.auth import get_user_model
 from django.test import TestCase
@@ -15,7 +15,9 @@ from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APITestCase
 
-from .models import Task, Notification
+from pywebpush import WebPushException
+
+from .models import Task, Notification, WebPushSubscription
 from .serializers import TaskSerializer
 from .tasks import check_and_send_reminders, _send_reminder
 
@@ -570,8 +572,9 @@ class CeleryTaskUnitTests(TestCase):
 
     # ---- _send_reminder -----------------------------------------------------
 
+    @patch('tasks.tasks.webpush')
     @patch('tasks.tasks.send_mail')
-    def test_send_reminder_sends_email(self, mock_send_mail):
+    def test_send_reminder_sends_email(self, mock_send_mail, mock_webpush):
         """_send_reminder dispatches email with correct content."""
         task = Task.objects.create(
             user=self.user,
@@ -587,8 +590,9 @@ class CeleryTaskUnitTests(TestCase):
         self.assertIn('Email Test', subject)
         self.assertEqual(recipient_list, [self.user.email])
 
+    @patch('tasks.tasks.webpush')
     @patch('tasks.tasks.send_mail')
-    def test_email_failure_does_not_block_ws(self, mock_send_mail):
+    def test_email_failure_does_not_block_ws(self, mock_send_mail, mock_webpush):
         """Email failure must not prevent WebSocket dispatch."""
         mock_send_mail.side_effect = Exception('SMTP down')
         task = Task.objects.create(
@@ -603,8 +607,9 @@ class CeleryTaskUnitTests(TestCase):
 
     # ---- check_and_send_reminders (periodic, direct execution) ---------------
 
+    @patch('tasks.tasks.webpush')
     @patch('tasks.tasks.send_mail')
-    def test_sends_first_reminder(self, mock_send_mail):
+    def test_sends_first_reminder(self, mock_send_mail, mock_webpush):
         """First reminder (sent_reminders=0): sends when now >= first_reminder."""
         task = Task.objects.create(
             user=self.user,
@@ -622,8 +627,9 @@ class CeleryTaskUnitTests(TestCase):
         task.refresh_from_db()
         self.assertEqual(task.sent_reminders, 1)
 
+    @patch('tasks.tasks.webpush')
     @patch('tasks.tasks.send_mail')
-    def test_sends_repeated_reminder(self, mock_send_mail):
+    def test_sends_repeated_reminder(self, mock_send_mail, mock_webpush):
         """Repeated reminder: sends when now >= first + (sent * interval)."""
         task = Task.objects.create(
             user=self.user,
@@ -641,8 +647,9 @@ class CeleryTaskUnitTests(TestCase):
         task.refresh_from_db()
         self.assertEqual(task.sent_reminders, 2)
 
+    @patch('tasks.tasks.webpush')
     @patch('tasks.tasks.send_mail')
-    def test_skips_not_yet_due_first(self, mock_send_mail):
+    def test_skips_not_yet_due_first(self, mock_send_mail, mock_webpush):
         """Future first_reminder is not triggered."""
         Task.objects.create(
             user=self.user,
@@ -658,8 +665,9 @@ class CeleryTaskUnitTests(TestCase):
 
         mock_send_mail.assert_not_called()
 
+    @patch('tasks.tasks.webpush')
     @patch('tasks.tasks.send_mail')
-    def test_skips_not_yet_due_repeat(self, mock_send_mail):
+    def test_skips_not_yet_due_repeat(self, mock_send_mail, mock_webpush):
         """Future repeated reminder is not triggered."""
         Task.objects.create(
             user=self.user,
@@ -675,8 +683,9 @@ class CeleryTaskUnitTests(TestCase):
 
         mock_send_mail.assert_not_called()
 
+    @patch('tasks.tasks.webpush')
     @patch('tasks.tasks.send_mail')
-    def test_skips_completed(self, mock_send_mail):
+    def test_skips_completed(self, mock_send_mail, mock_webpush):
         """is_done=True tasks are excluded."""
         Task.objects.create(
             user=self.user,
@@ -691,8 +700,9 @@ class CeleryTaskUnitTests(TestCase):
 
         mock_send_mail.assert_not_called()
 
+    @patch('tasks.tasks.webpush')
     @patch('tasks.tasks.send_mail')
-    def test_skips_null_first_reminder(self, mock_send_mail):
+    def test_skips_null_first_reminder(self, mock_send_mail, mock_webpush):
         """Tasks with first_reminder=null are excluded from query."""
         Task.objects.create(
             user=self.user,
@@ -706,8 +716,9 @@ class CeleryTaskUnitTests(TestCase):
 
         mock_send_mail.assert_not_called()
 
+    @patch('tasks.tasks.webpush')
     @patch('tasks.tasks.send_mail')
-    def test_skips_when_all_repeats_sent(self, mock_send_mail):
+    def test_skips_when_all_repeats_sent(self, mock_send_mail, mock_webpush):
         """sent_reminders >= repeat_reminder skips the task."""
         Task.objects.create(
             user=self.user,
@@ -723,8 +734,9 @@ class CeleryTaskUnitTests(TestCase):
 
         mock_send_mail.assert_not_called()
 
+    @patch('tasks.tasks.webpush')
     @patch('tasks.tasks.send_mail')
-    def test_handles_multiple_tasks(self, mock_send_mail):
+    def test_handles_multiple_tasks(self, mock_send_mail, mock_webpush):
         """Multiple eligible tasks all get their reminders sent."""
         Task.objects.create(
             user=self.user,
@@ -1537,8 +1549,9 @@ class NotificationCeleryTests(TestCase):
     def setUpTestData(cls):
         cls.user = User.objects.create_user('celnotif', 'celnotif@test.com', 'SecurePass123!')
 
+    @patch('tasks.tasks.webpush')
     @patch('tasks.tasks.send_mail')
-    def test_send_reminder_creates_notification(self, mock_send_mail):
+    def test_send_reminder_creates_notification(self, mock_send_mail, mock_webpush):
         task = Task.objects.create(
             user=self.user, title='Reminder Task',
             first_reminder=timezone.now() - timedelta(minutes=5),
@@ -1552,8 +1565,9 @@ class NotificationCeleryTests(TestCase):
         self.assertIn('Reminder Task', notif.title)
         self.assertFalse(notif.is_read)
 
+    @patch('tasks.tasks.webpush')
     @patch('tasks.tasks.send_mail')
-    def test_send_reminder_notification_persists_on_email_failure(self, mock_send_mail):
+    def test_send_reminder_notification_persists_on_email_failure(self, mock_send_mail, mock_webpush):
         """Email failure must not prevent Notification creation."""
         mock_send_mail.side_effect = Exception('SMTP down')
         task = Task.objects.create(
@@ -1566,9 +1580,10 @@ class NotificationCeleryTests(TestCase):
 
         self.assertTrue(Notification.objects.filter(user=self.user, task=task).exists())
 
+    @patch('tasks.tasks.webpush')
     @patch('tasks.tasks.get_channel_layer')
     @patch('tasks.tasks.send_mail')
-    def test_send_reminder_notification_persists_on_ws_failure(self, mock_send_mail, mock_channel):
+    def test_send_reminder_notification_persists_on_ws_failure(self, mock_send_mail, mock_channel, mock_webpush):
         """WebSocket failure must not prevent Notification creation."""
         mock_channel.return_value.group_send.side_effect = Exception('Redis down')
         task = Task.objects.create(
@@ -1581,9 +1596,10 @@ class NotificationCeleryTests(TestCase):
 
         self.assertTrue(Notification.objects.filter(user=self.user, task=task).exists())
 
+    @patch('tasks.tasks.webpush')
     @patch('tasks.tasks.Notification.objects.create')
     @patch('tasks.tasks.send_mail')
-    def test_send_reminder_survives_db_error(self, mock_send_mail, mock_create):
+    def test_send_reminder_survives_db_error(self, mock_send_mail, mock_create, mock_webpush):
         """DB error during Notification.create must be caught, not crash the pipeline."""
         mock_create.side_effect = Exception('DB exploded')
         task = Task.objects.create(
@@ -1597,3 +1613,100 @@ class NotificationCeleryTests(TestCase):
 
         # Email was still attempted
         mock_send_mail.assert_called_once()
+
+
+# ---------------------------------------------------------------------------
+# 12. Web Push notification edge cases
+# ---------------------------------------------------------------------------
+
+class WebPushNotificationTests(TestCase):
+    """Cover the Web Push try/except blocks inside _send_reminder."""
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.user = User.objects.create_user(
+            'webpushuser', 'webpush@test.com', 'SecurePass123!',
+        )
+
+    def _make_task(self, **overrides):
+        defaults = {
+            'user': self.user,
+            'title': 'Push Task',
+            'first_reminder': timezone.now() - timedelta(minutes=5),
+            'is_done': False,
+        }
+        defaults.update(overrides)
+        return Task.objects.create(**defaults)
+
+    def _make_subscription(self, **overrides):
+        defaults = {
+            'user': self.user,
+            'endpoint': 'https://example.com/push/endpoint/1',
+            'p256dh': 'test-p256dh-key',
+            'auth': 'test-auth-key',
+        }
+        defaults.update(overrides)
+        return WebPushSubscription.objects.create(**defaults)
+
+    @patch('tasks.tasks.webpush')
+    @patch('tasks.tasks.send_mail')
+    def test_successful_web_push(self, mock_send_mail, mock_webpush):
+        """webpush() succeeds — subscription is NOT deleted."""
+        sub = self._make_subscription()
+        task = self._make_task()
+
+        _send_reminder(task)
+
+        mock_webpush.assert_called_once()
+        self.assertTrue(WebPushSubscription.objects.filter(pk=sub.pk).exists())
+
+    @patch('tasks.tasks.webpush')
+    @patch('tasks.tasks.send_mail')
+    def test_expired_subscription_410_deletes(self, mock_send_mail, mock_webpush):
+        """webpush() raises WebPushException with status 410 — subscription is deleted."""
+        sub = self._make_subscription()
+        task = self._make_task()
+
+        response = MagicMock()
+        response.status_code = 410
+        exc = WebPushException(' Gone')
+        exc.response = response
+        mock_webpush.side_effect = exc
+
+        _send_reminder(task)
+
+        self.assertFalse(WebPushSubscription.objects.filter(pk=sub.pk).exists())
+
+    @patch('tasks.tasks.webpush')
+    @patch('tasks.tasks.send_mail')
+    def test_not_found_subscription_404_deletes(self, mock_send_mail, mock_webpush):
+        """webpush() raises WebPushException with status 404 — subscription is deleted."""
+        sub = self._make_subscription()
+        task = self._make_task()
+
+        response = MagicMock()
+        response.status_code = 404
+        exc = WebPushException(' Not Found')
+        exc.response = response
+        mock_webpush.side_effect = exc
+
+        _send_reminder(task)
+
+        self.assertFalse(WebPushSubscription.objects.filter(pk=sub.pk).exists())
+
+    @patch('tasks.tasks.webpush')
+    @patch('tasks.tasks.send_mail')
+    def test_server_error_500_keeps_subscription(self, mock_send_mail, mock_webpush):
+        """webpush() raises WebPushException with status 500 — subscription is kept."""
+        sub = self._make_subscription()
+        task = self._make_task()
+
+        response = MagicMock()
+        response.status_code = 500
+        exc = WebPushException(' Internal Server Error')
+        exc.response = response
+        mock_webpush.side_effect = exc
+
+        _send_reminder(task)
+
+        self.assertTrue(WebPushSubscription.objects.filter(pk=sub.pk).exists())

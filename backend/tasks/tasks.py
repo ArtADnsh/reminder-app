@@ -57,36 +57,39 @@ def _send_reminder(task):
         logger.error('Failed to send WebSocket notification: task_id=%s user_id=%s', task.id, user.id, exc_info=True)
 
     # 4. Try sending Web Push Notification
-    payload = json.dumps({
-        'title': 'یادآور تسک',
-        'body': task.title,
-        'url': '/',
-    })
+    try:
+        payload = json.dumps({
+            'title': 'یادآور تسک',
+            'body': task.title,
+            'url': '/',
+        })
 
-    vapid_private_key = django_settings.VAPID_PRIVATE_KEY
-    vapid_claims = {'sub': f'mailto:{django_settings.EMAIL_HOST_USER}'}
+        vapid_private_key = django_settings.VAPID_PRIVATE_KEY
+        vapid_claims = {'sub': f'mailto:{django_settings.EMAIL_HOST_USER}'}
 
-    subscriptions = WebPushSubscription.objects.filter(user=user)
-    for sub in subscriptions:
-        subscription_info = {
-            'endpoint': sub.endpoint,
-            'keys': {
-                'p256dh': sub.p256dh,
-                'auth': sub.auth,
-            },
-        }
-        try:
-            webpush(subscription_info, payload, vapid_private_key, vapid_claims)
-            logger.info('Web Push sent: task_id=%s user_id=%s endpoint=%s', task.id, user.id, sub.endpoint)
-        except WebPushException as e:
-            status_code = getattr(e, 'response', None)
-            if status_code is not None:
-                status_code = getattr(status_code, 'status_code', None)
-            if status_code in (410, 404):
-                sub.delete()
-                logger.info('Deleted expired Web Push subscription: task_id=%s sub_id=%s', task.id, sub.id)
-            else:
-                logger.error('Web Push failed: task_id=%s endpoint=%s %s', task.id, sub.endpoint, e, exc_info=True)
+        subscriptions = WebPushSubscription.objects.filter(user=user)
+        for sub in subscriptions:
+            subscription_info = {
+                'endpoint': sub.endpoint,
+                'keys': {
+                    'p256dh': sub.p256dh,
+                    'auth': sub.auth,
+                },
+            }
+            try:
+                webpush(subscription_info, payload, vapid_private_key, vapid_claims)
+                logger.info('Web Push sent: task_id=%s user_id=%s endpoint=%s', task.id, user.id, sub.endpoint)
+            except WebPushException as e:
+                status_code = getattr(e, 'response', None)
+                if status_code is not None:
+                    status_code = getattr(status_code, 'status_code', None)
+                if status_code in (410, 404):
+                    sub.delete()
+                    logger.info('Deleted expired Web Push subscription: task_id=%s sub_id=%s', task.id, sub.id)
+                else:
+                    logger.error('Web Push failed: task_id=%s endpoint=%s %s', task.id, sub.endpoint, e, exc_info=True)
+    except Exception:
+        logger.error('Web Push pipeline failed: task_id=%s', task.id, exc_info=True)
 
 
 @shared_task

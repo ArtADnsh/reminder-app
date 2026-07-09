@@ -2,12 +2,14 @@ import { toast } from 'react-toastify';
 import { useState, useEffect } from 'react';
 import axiosInstance from '../api/axiosInstance';
 import TaskModal from '../components/TaskModal';
+import { subscribeToWebPush } from '../utils/webPush';
 
 export default function Dashboard() {
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeFilter, setActiveFilter] = useState('all');
   const [activeStatus, setActiveStatus] = useState('pending');
+  const [showPushBanner, setShowPushBanner] = useState(false);
 
   // State های مربوط به مودال
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -59,6 +61,26 @@ export default function Dashboard() {
 
     return () => { cancelled = true; };
   }, [activeFilter, activeStatus]);
+
+  // چک کردن دسترسی برای نمایش بنر پوش‌نوتیفیکیشن
+  useEffect(() => {
+    if ('Notification' in window && 'serviceWorker' in navigator) {
+      if (Notification.permission === 'default') {
+        setShowPushBanner(true);
+      }
+    }
+  }, []);
+
+  const handleEnablePush = async () => {
+    const subscription = await subscribeToWebPush();
+    if (subscription) {
+      toast.success('اعلان‌های سیستم با موفقیت فعال شد! 🔔');
+      setShowPushBanner(false);
+    } else {
+      toast.error('فعال‌سازی اعلان‌ها لغو شد یا با خطا مواجه گردید.');
+      setShowPushBanner(false);
+    }
+  };
 
 // هندل کردن ثبت تسک جدید با Payload هوشمند
   const handleCreateTask = async (formData) => {
@@ -135,6 +157,40 @@ export default function Dashboard() {
 
   return (
     <div>
+      {/* Smart Push Notification Banner */}
+      {showPushBanner && (
+        <div className="mb-6 bg-gradient-to-r from-blue-600 to-primary rounded-2xl shadow-lg p-5 sm:p-6 text-white flex flex-col lg:flex-row items-center justify-between gap-5 animate-fade-in relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-48 h-48 bg-white opacity-5 rounded-full -mr-16 -mt-16 blur-2xl"></div>
+          
+          <div className="flex flex-col sm:flex-row items-center sm:items-start lg:items-center gap-4 relative z-10 w-full lg:w-auto text-center sm:text-right">
+            <div className="bg-white/20 p-3.5 rounded-2xl shrink-0">
+              <svg className="w-8 h-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+              </svg>
+            </div>
+            <div>
+              <h3 className="text-xl font-bold mb-1">دریافت آنی یادآورها</h3>
+              <p className="text-sm text-blue-100 font-medium">برای دریافت یادآورهای خود در پس‌زمینه، لطفا دسترسی ارسال اعلان را به مرورگر بدهید.</p>
+            </div>
+          </div>
+          
+          <div className="flex items-center gap-3 w-full sm:w-auto justify-center relative z-10 shrink-0 mt-2 lg:mt-0">
+            <button 
+              onClick={() => setShowPushBanner(false)}
+              className="px-5 py-2.5 rounded-xl font-bold text-sm bg-blue-800/40 hover:bg-blue-800/60 transition-colors"
+            >
+              فعلا نه
+            </button>
+            <button 
+              onClick={handleEnablePush}
+              className="px-6 py-2.5 rounded-xl font-extrabold text-sm bg-white text-primary hover:bg-gray-50 shadow-md hover:shadow-lg hover:-translate-y-0.5 transition-all"
+            >
+              فعال‌سازی اعلان‌ها
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* هدر داشبورد */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
         <h2 className="text-2xl font-bold text-gray-800">یادآورهای فعال</h2>
