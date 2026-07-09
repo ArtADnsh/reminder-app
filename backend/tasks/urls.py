@@ -1,7 +1,7 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from rest_framework_simplejwt.views import TokenRefreshView
-from .views import TaskViewSet, SignUpView, LoginView, LogoutView, UserProfileView, ChangePasswordView, NotificationViewSet
+from .views import TaskViewSet, SignUpView, LoginView, LogoutView, UserProfileView, ChangePasswordView, NotificationViewSet, WebPushSubscribeView
 
 
 router = DefaultRouter()
@@ -16,6 +16,8 @@ urlpatterns = [
 
     path('users/me/', UserProfileView.as_view(), name='user_profile'),
     path('users/me/change-password/', ChangePasswordView.as_view(), name='change_password'),
+
+    path('webpush/subscribe/', WebPushSubscribeView.as_view(), name='webpush_subscribe'),
 
     path('', include(router.urls)),
 ]

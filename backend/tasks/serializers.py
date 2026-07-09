@@ -4,7 +4,7 @@ from django.contrib.auth import get_user_model
 from datetime import timedelta
 from django.contrib.auth.password_validation import validate_password
 
-from .models import Task, Notification
+from .models import Task, Notification, WebPushSubscription
 
 User = get_user_model()
 
@@ -153,3 +153,23 @@ class NotificationSerializer(serializers.ModelSerializer):
         model = Notification
         fields = ('id', 'task_id', 'title', 'is_read', 'created_at')
         read_only_fields = ('id', 'created_at')
+
+
+class WebPushSubscriptionSerializer(serializers.Serializer):
+    endpoint = serializers.URLField(max_length=500)
+    keys = serializers.DictField(child=serializers.CharField(), write_only=True)
+
+    def validate_keys(self, value):
+        if 'p256dh' not in value or 'auth' not in value:
+            raise serializers.ValidationError("keys must contain 'p256dh' and 'auth'.")
+        return value
+
+    def create(self, validated_data):
+        user = self.context['request'].user
+        keys = validated_data.pop('keys')
+        obj, _ = WebPushSubscription.objects.update_or_create(
+            user=user,
+            endpoint=validated_data['endpoint'],
+            defaults={'p256dh': keys['p256dh'], 'auth': keys['auth']},
+        )
+        return obj

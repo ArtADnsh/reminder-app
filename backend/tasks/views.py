@@ -16,8 +16,8 @@ from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from django.contrib.auth import get_user_model
 from django.utils import timezone
 
-from .models import Task, Notification
-from .serializers import TaskSerializer, SignUpSerializer, UserProfileSerializer, ChangePasswordSerializer, NotificationSerializer
+from .models import Task, Notification, WebPushSubscription
+from .serializers import TaskSerializer, SignUpSerializer, UserProfileSerializer, ChangePasswordSerializer, NotificationSerializer, WebPushSubscriptionSerializer
 
 User = get_user_model()
 logger = logging.getLogger(__name__)
@@ -239,3 +239,16 @@ class NotificationViewSet(ModelViewSet):
 
     def perform_destroy(self, instance):
         instance.delete()
+
+
+# ==========================================
+# 5. Web Push Notifications
+# ==========================================
+class WebPushSubscribeView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        serializer = WebPushSubscriptionSerializer(data=request.data, context={'request': request})
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response({"msg": "Subscription saved."}, status=status.HTTP_201_CREATED)

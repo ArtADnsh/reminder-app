@@ -195,6 +195,10 @@ CELERY_BEAT_SCHEDULE = {
 
 CELERY_IMPORTS = ('tasks.tasks',)
 
+# Web Push (VAPID)
+VAPID_PRIVATE_KEY = os.environ.get('VAPID_PRIVATE_KEY', '')
+VAPID_PUBLIC_KEY = os.environ.get('VAPID_PUBLIC_KEY', '')
+
 #production
 CORS_ALLOWED_ORIGINS = [
     'http://localhost',
