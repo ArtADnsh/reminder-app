@@ -136,6 +136,30 @@ services:
       backend:
         condition: service_healthy
 
+  xray-proxy:
+    build: ./proxy
+    container_name: xray-proxy
+    restart: unless-stopped
+    ports:
+      - "10809:10809"
+    networks:
+      - app_network
+
+  telegram_bot:
+    image: reminder_backend:latest
+    container_name: reminder_bot
+    restart: always
+    command: python manage.py run_bot
+    env_file:
+      - ./backend/.env
+    networks:
+      - app_network
+    depends_on:
+      backend:
+        condition: service_healthy
+      xray-proxy:
+        condition: service_started
+
 networks:
   app_network:
     driver: bridge

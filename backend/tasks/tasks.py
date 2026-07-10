@@ -11,6 +11,7 @@ from django.utils import timezone
 from pywebpush import webpush, WebPushException
 
 from .models import Task, Notification, WebPushSubscription
+from .telegram_utils import send_telegram_notification
 
 logger = logging.getLogger(__name__)
 
@@ -55,6 +56,22 @@ def _send_reminder(task):
         logger.info('WebSocket notification dispatched: task_id=%s user_id=%s', task.id, user.id)
     except Exception:
         logger.error('Failed to send WebSocket notification: task_id=%s user_id=%s', task.id, user.id, exc_info=True)
+        
+# 3.5. Try sending Telegram Notification
+    try:
+        # دسترسی به مدلِ TelegramConnection از طریق رابطه‌ی OneToOne
+        # با استفاده از getattr ایمن می‌شویم تا اگر یوزر هنوز لینک نکرده، کرش نکند
+        telegram_conn = getattr(user, 'telegram_connection', None)
+        
+        if telegram_conn and telegram_conn.chat_id:
+            logger.info('Attempting to send Telegram to chat_id=%s', telegram_conn.chat_id)
+            send_telegram_notification(telegram_conn.chat_id, message)
+            logger.info('Telegram notification sent successfully!')
+        else:
+            logger.warning('Telegram SKIPPED for user %s: No TelegramConnection found or chat_id is NULL', user.id)
+            
+    except Exception as e:
+        logger.error('CRITICAL: Telegram FAILED with error: %s', e, exc_info=True)
 
     # 4. Try sending Web Push Notification
     try:

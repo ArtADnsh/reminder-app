@@ -82,3 +82,8 @@ frontend/*.local
 *~
 .DS_Store
 Thumbs.db
+
+# =========================
+# Proxy config (contains credentials)
+# =========================
+proxy/config.json

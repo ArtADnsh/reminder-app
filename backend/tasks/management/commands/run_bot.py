@@ -4,6 +4,7 @@ from django.conf import settings
 from django.core.management.base import BaseCommand
 
 import telebot
+from telebot import apihelper
 
 from tasks.models import TelegramConnection
 
@@ -22,6 +23,7 @@ class Command(BaseCommand):
             return
 
         bot = telebot.TeleBot(token, parse_mode=None)
+        apihelper.proxy = {'https': 'http://xray-proxy:10809'}
 
         @bot.message_handler(commands=['start'])
         def handle_start(message):
