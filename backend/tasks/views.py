@@ -15,6 +15,7 @@ from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
 from django.contrib.auth import get_user_model
 from django.utils import timezone
+from django.conf import settings as django_settings
 
 from .models import Task, Notification, WebPushSubscription, TelegramConnection
 from .serializers import TaskSerializer, SignUpSerializer, UserProfileSerializer, ChangePasswordSerializer, NotificationSerializer, WebPushSubscriptionSerializer
