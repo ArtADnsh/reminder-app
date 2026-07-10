@@ -1,7 +1,7 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from rest_framework_simplejwt.views import TokenRefreshView
-from .views import TaskViewSet, SignUpView, LoginView, LogoutView, UserProfileView, ChangePasswordView, NotificationViewSet, WebPushSubscribeView
+from .views import TaskViewSet, SignUpView, LoginView, LogoutView, UserProfileView, ChangePasswordView, NotificationViewSet, WebPushSubscribeView, GetTelegramLinkView
 
 
 router = DefaultRouter()
@@ -18,6 +18,8 @@ urlpatterns = [
     path('users/me/change-password/', ChangePasswordView.as_view(), name='change_password'),
 
     path('webpush/subscribe/', WebPushSubscribeView.as_view(), name='webpush_subscribe'),
+
+    path('telegram/link/', GetTelegramLinkView.as_view(), name='telegram_link'),
 
     path('', include(router.urls)),
 ]

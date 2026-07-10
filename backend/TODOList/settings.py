@@ -251,3 +251,7 @@ LOGGING = {
         },
     },
 }
+
+# Telegram bot
+TELEGRAM_BOT_TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN')
+TELEGRAM_BOT_USERNAME = os.environ.get('TELEGRAM_BOT_USERNAME', '')

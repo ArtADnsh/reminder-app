@@ -16,7 +16,7 @@ from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from django.contrib.auth import get_user_model
 from django.utils import timezone
 
-from .models import Task, Notification, WebPushSubscription
+from .models import Task, Notification, WebPushSubscription, TelegramConnection
 from .serializers import TaskSerializer, SignUpSerializer, UserProfileSerializer, ChangePasswordSerializer, NotificationSerializer, WebPushSubscriptionSerializer
 
 User = get_user_model()
@@ -252,3 +252,18 @@ class WebPushSubscribeView(APIView):
         serializer.is_valid(raise_exception=True)
         serializer.save()
         return Response({"msg": "Subscription saved."}, status=status.HTTP_201_CREATED)
+
+
+# ==========================================
+# 6. Telegram Bot Linking
+# ==========================================
+class GetTelegramLinkView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        conn, _ = TelegramConnection.objects.get_or_create(user=request.user)
+        bot_username = getattr(django_settings, 'TELEGRAM_BOT_USERNAME', '')
+        return Response({
+            'link_token': str(conn.link_token),
+            'bot_username': bot_username,
+        })

@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Task, WebPushSubscription, Notification
+from .models import Task, WebPushSubscription, Notification, TelegramConnection
 
 
 @admin.register(Task)
@@ -23,3 +23,10 @@ class NotificationAdmin(admin.ModelAdmin):
     list_filter = ('task', 'user', 'is_read', 'created_at')
     search_fields = ('title', 'task__title', 'user__username')
     readonly_fields = ('created_at',)
+
+
+@admin.register(TelegramConnection)
+class TelegramConnectionAdmin(admin.ModelAdmin):
+    list_display = ('user', 'chat_id', 'link_token')
+    list_filter = ('user',)
+    search_fields = ('user__username', 'chat_id')

@@ -1,3 +1,5 @@
+import uuid
+
 from django.db import models
 from django.contrib.auth import get_user_model
 
@@ -63,3 +65,12 @@ class Task(models.Model):
 
     def __str__(self):
         return self.title
+
+
+class TelegramConnection(models.Model):
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='telegram_connection')
+    chat_id = models.CharField(max_length=100, unique=True, null=True, blank=True)
+    link_token = models.UUIDField(default=uuid.uuid4, unique=True)
+
+    def __str__(self):
+        return f'Telegram({self.user.username} -> {self.chat_id or "unlinked"})'
