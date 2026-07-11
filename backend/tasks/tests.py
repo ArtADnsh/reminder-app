@@ -18,7 +18,7 @@ from rest_framework.test import APITestCase
 
 from pywebpush import WebPushException
 
-from .models import Task, Notification, WebPushSubscription, TelegramConnection
+from .models import Task, Notification, Category, WebPushSubscription, TelegramConnection
 from .serializers import TaskSerializer
 from .tasks import check_and_send_reminders, _send_reminder
 
@@ -2212,7 +2212,7 @@ class TaskCategoryFilterTests(AuthenticatedAPITestCase):
         response = self.client.post(self.tasks_list_url, payload, format='json')
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(response.data['category'], self.cat.id)
+        self.assertEqual(response.data['category']['id'], self.cat.id)
 
     def test_create_task_without_category(self):
         payload = self.build_task_payload()
@@ -2228,7 +2228,7 @@ class TaskCategoryFilterTests(AuthenticatedAPITestCase):
         response = self.client.patch(self.task_detail_url(task.id), payload, format='json')
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(response.data['category'], self.other_cat.id)
+        self.assertEqual(response.data['category']['id'], self.other_cat.id)
 
     def test_filter_tasks_by_category(self):
         Task.objects.create(user=self.user, title='Work Task', category=self.cat)

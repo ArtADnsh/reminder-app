@@ -121,6 +121,12 @@ class TaskSerializer(serializers.ModelSerializer):
 
         return attrs
 
+    def to_representation(self, instance):
+        ret = super().to_representation(instance)
+        if instance.category:
+            ret['category'] = CategorySerializer(instance.category).data
+        return ret
+
 
 class SignUpSerializer(serializers.ModelSerializer):
     # پسورد را write_only می‌کنیم تا در پاسخ JSON برگشت داده نشود
