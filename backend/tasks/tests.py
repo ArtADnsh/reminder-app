@@ -2105,3 +2105,177 @@ class TelegramLinkViewTests(AuthenticatedAPITestCase):
         response = self.client.delete(url)
 
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+
+# ---------------------------------------------------------------------------
+# 20. Category system
+# ---------------------------------------------------------------------------
+
+class CategoryModelTests(TestCase):
+    """Cover Category model __str__ and constraints."""
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.user = User.objects.create_user('catuser', 'cat@test.com', 'SecurePass123!')
+
+    def test_category_str(self):
+        cat = Category.objects.create(user=self.user, name='Work')
+        self.assertIn('Work', str(cat))
+        self.assertIn('catuser', str(cat))
+
+    def test_unique_constraint_same_name_raises(self):
+        Category.objects.create(user=self.user, name='Work')
+        with self.assertRaises(Exception):
+            Category.objects.create(user=self.user, name='Work')
+
+    def test_different_users_can_have_same_name(self):
+        other = User.objects.create_user('other', 'other@test.com', 'SecurePass123!')
+        Category.objects.create(user=self.user, name='Work')
+        cat = Category.objects.create(user=other, name='Work')
+        self.assertEqual(cat.name, 'Work')
+
+
+class CategoryAPITests(AuthenticatedAPITestCase):
+    """CRUD for /api/categories/ endpoint."""
+
+    def setUp(self):
+        super().setUp()
+        self.url = reverse('category-list')
+
+    def test_create_category(self):
+        response = self.client.post(self.url, {'name': 'Personal', 'color': '#ff0000'}, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data['name'], 'Personal')
+        self.assertTrue(Category.objects.filter(user=self.user, name='Personal').exists())
+
+    def test_list_returns_own_categories(self):
+        Category.objects.create(user=self.user, name='Mine')
+        Category.objects.create(user=self.other_user, name='Theirs')
+
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        names = [c['name'] for c in response.data]
+        self.assertIn('Mine', names)
+        self.assertNotIn('Theirs', names)
+
+    def test_update_category(self):
+        cat = Category.objects.create(user=self.user, name='Old')
+        detail_url = reverse('category-detail', kwargs={'pk': cat.pk})
+
+        response = self.client.patch(detail_url, {'name': 'New'}, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        cat.refresh_from_db()
+        self.assertEqual(cat.name, 'New')
+
+    def test_delete_category(self):
+        cat = Category.objects.create(user=self.user, name='Doomed')
+        detail_url = reverse('category-detail', kwargs={'pk': cat.pk})
+
+        response = self.client.delete(detail_url)
+
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertFalse(Category.objects.filter(pk=cat.pk).exists())
+
+    def test_cannot_access_other_users_category(self):
+        other_cat = Category.objects.create(user=self.other_user, name='Private')
+        detail_url = reverse('category-detail', kwargs={'pk': other_cat.pk})
+
+        response = self.client.get(detail_url)
+
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_create_category_with_default_color(self):
+        response = self.client.post(self.url, {'name': 'NoColor'}, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data['color'], '#cbd5e1')
+
+    def test_unauthenticated_rejected(self):
+        self.client.credentials()
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+
+class TaskCategoryFilterTests(AuthenticatedAPITestCase):
+    """Cover category assignment on tasks and ?category= filter."""
+
+    def setUp(self):
+        super().setUp()
+        self.cat = Category.objects.create(user=self.user, name='Work')
+        self.other_cat = Category.objects.create(user=self.user, name='Personal')
+
+    def test_create_task_with_category(self):
+        payload = self.build_task_payload(category=self.cat.id)
+        response = self.client.post(self.tasks_list_url, payload, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data['category'], self.cat.id)
+
+    def test_create_task_without_category(self):
+        payload = self.build_task_payload()
+        response = self.client.post(self.tasks_list_url, payload, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertIsNone(response.data['category'])
+
+    def test_update_task_category(self):
+        task = Task.objects.create(user=self.user, title='T', category=self.cat)
+        payload = {'category': self.other_cat.id}
+
+        response = self.client.patch(self.task_detail_url(task.id), payload, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['category'], self.other_cat.id)
+
+    def test_filter_tasks_by_category(self):
+        Task.objects.create(user=self.user, title='Work Task', category=self.cat)
+        Task.objects.create(user=self.user, title='Personal Task', category=self.other_cat)
+        Task.objects.create(user=self.user, title='No Category')
+
+        response = self.client.get(f'{self.tasks_list_url}?category={self.cat.id}')
+
+        titles = [t['title'] for t in response.data]
+        self.assertIn('Work Task', titles)
+        self.assertNotIn('Personal Task', titles)
+        self.assertNotIn('No Category', titles)
+
+    def test_category_filter_returns_only_own_tasks(self):
+        Task.objects.create(user=self.user, title='My Work', category=self.cat)
+        Task.objects.create(user=self.other_user, title='Their Work', category=self.cat)
+
+        response = self.client.get(f'{self.tasks_list_url}?category={self.cat.id}')
+
+        titles = [t['title'] for t in response.data]
+        self.assertIn('My Work', titles)
+        self.assertNotIn('Their Work', titles)
+
+    def test_invalid_category_id_returns_empty(self):
+        response = self.client.get(f'{self.tasks_list_url}?category=99999')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 0)
+
+    def test_cannot_assign_other_users_category_on_create(self):
+        """IDOR protection: assigning another user's category is rejected."""
+        foreign_cat = Category.objects.create(user=self.other_user, name='Stolen')
+        payload = self.build_task_payload(category=foreign_cat.id)
+
+        response = self.client.post(self.tasks_list_url, payload, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertFalse(Task.objects.filter(user=self.user, category=foreign_cat).exists())
+
+    def test_cannot_assign_other_users_category_on_update(self):
+        """IDOR protection: updating a task with another user's category is rejected."""
+        foreign_cat = Category.objects.create(user=self.other_user, name='Stolen')
+        task = Task.objects.create(user=self.user, title='T', category=self.cat)
+
+        response = self.client.patch(
+            self.task_detail_url(task.id), {'category': foreign_cat.id}, format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        task.refresh_from_db()
+        self.assertEqual(task.category, self.cat)

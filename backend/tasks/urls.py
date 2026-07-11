@@ -1,12 +1,13 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from rest_framework_simplejwt.views import TokenRefreshView
-from .views import TaskViewSet, SignUpView, LoginView, LogoutView, UserProfileView, ChangePasswordView, NotificationViewSet, WebPushSubscribeView, GetTelegramLinkView
+from .views import TaskViewSet, SignUpView, LoginView, LogoutView, UserProfileView, ChangePasswordView, NotificationViewSet, WebPushSubscribeView, GetTelegramLinkView, CategoryViewSet
 
 
 router = DefaultRouter()
 router.register(r'tasks', TaskViewSet, basename='task')
 router.register(r'notifications', NotificationViewSet, basename='notification')
+router.register(r'categories', CategoryViewSet, basename='category')
 
 urlpatterns = [
     path('auth/signup/', SignUpView.as_view(), name='api_signup'),

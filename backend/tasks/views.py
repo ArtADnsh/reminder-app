@@ -17,8 +17,8 @@ from django.contrib.auth import get_user_model
 from django.utils import timezone
 from django.conf import settings as django_settings
 
-from .models import Task, Notification, WebPushSubscription, TelegramConnection
-from .serializers import TaskSerializer, SignUpSerializer, UserProfileSerializer, ChangePasswordSerializer, NotificationSerializer, WebPushSubscriptionSerializer
+from .models import Task, Notification, WebPushSubscription, TelegramConnection, Category
+from .serializers import TaskSerializer, SignUpSerializer, UserProfileSerializer, ChangePasswordSerializer, NotificationSerializer, WebPushSubscriptionSerializer, CategorySerializer
 
 User = get_user_model()
 logger = logging.getLogger(__name__)
@@ -27,9 +27,19 @@ logger = logging.getLogger(__name__)
 # ==========================================
 # 1. Task Management (ViewSets)
 # ==========================================
+class CategoryViewSet(ModelViewSet):
+    serializer_class = CategorySerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return Category.objects.filter(user=self.request.user)
+
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
+
+
 class TaskViewSet(ModelViewSet):
     """مدیریت کامل تسک‌ها (CRUD)"""
-    queryset = Task.objects.all()
     serializer_class = TaskSerializer
     permission_classes = [IsAuthenticated]
 
@@ -59,6 +69,10 @@ class TaskViewSet(ModelViewSet):
             qs = qs.filter(is_done=False)
         elif status_value == 'completed':
             qs = qs.filter(is_done=True)
+
+        category_id = self.request.query_params.get('category')
+        if category_id:
+            qs = qs.filter(category_id=category_id)
 
         return qs.order_by('-id')
 

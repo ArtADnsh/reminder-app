@@ -41,8 +41,25 @@ class WebPushSubscription(models.Model):
         return f'WebPush({self.user.username} -> {self.endpoint[:50]})'
 
 
+class Category(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='categories')
+    name = models.CharField(max_length=50)
+    color = models.CharField(max_length=7, default='#cbd5e1')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=['user', 'name'], name='unique_user_category_name'),
+        ]
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f'{self.name} ({self.user.username})'
+
+
 class Task(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='tasks')
+    category = models.ForeignKey(Category, on_delete=models.SET_NULL, null=True, blank=True, related_name='tasks')
     title = models.CharField(max_length=100)
     description = models.CharField(max_length=500, blank=True)
     is_done = models.BooleanField(default=False)

@@ -4,14 +4,24 @@ from django.contrib.auth import get_user_model
 from datetime import timedelta
 from django.contrib.auth.password_validation import validate_password
 
-from .models import Task, Notification, WebPushSubscription
+from .models import Task, Notification, WebPushSubscription, Category
 
 User = get_user_model()
+
+
+class CategorySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Category
+        fields = ['id', 'name', 'color', 'created_at']
+        read_only_fields = ['id', 'created_at']
 
 
 class TaskSerializer(serializers.ModelSerializer):
     first_reminder = serializers.DateTimeField(required=False, allow_null=True)
     next_reminder = serializers.SerializerMethodField(read_only=True)
+    category = serializers.PrimaryKeyRelatedField(
+        queryset=Category.objects.none(), required=False, allow_null=True,
+    )
 
     class Meta:
         model = Task
@@ -20,11 +30,12 @@ class TaskSerializer(serializers.ModelSerializer):
             'title',
             'description',
             'is_done',
+            'category',
             'first_reminder',
             'repeat_reminder',          # total number of reminders (includes the first one)
             'time_between_reminders',   # minutes between subsequent reminders
             'next_reminder',
-            'sent_reminders',          
+            'sent_reminders',
             'created_at',
         ]
         read_only_fields = [
@@ -33,6 +44,12 @@ class TaskSerializer(serializers.ModelSerializer):
             'created_at',
             'sent_reminders',
         ]
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        request = self.context.get('request')
+        if request and request.user:
+            self.fields['category'].queryset = Category.objects.filter(user=request.user)
 
     def get_next_reminder(self, obj):
         if obj.is_done:
