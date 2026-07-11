@@ -1,5 +1,7 @@
 import uuid
+from datetime import timedelta
 
+from dateutil.relativedelta import relativedelta
 from django.db import models
 from django.contrib.auth import get_user_model
 
@@ -58,11 +60,19 @@ class Category(models.Model):
 
 
 class Task(models.Model):
+    RECURRENCE_CHOICES = [
+        ('none', 'None'),
+        ('daily', 'Daily'),
+        ('weekly', 'Weekly'),
+        ('monthly', 'Monthly'),
+    ]
+
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='tasks')
     category = models.ForeignKey(Category, on_delete=models.SET_NULL, null=True, blank=True, related_name='tasks')
     title = models.CharField(max_length=100)
     description = models.CharField(max_length=500, blank=True)
     is_done = models.BooleanField(default=False)
+    recurrence = models.CharField(max_length=10, choices=RECURRENCE_CHOICES, default='none')
 
     first_reminder = models.DateTimeField(null=True, blank=True)
     repeat_reminder = models.PositiveIntegerField(null=True, blank=True)
@@ -82,6 +92,28 @@ class Task(models.Model):
 
     def __str__(self):
         return self.title
+
+    def clone_for_recurrence(self):
+        if self.recurrence == 'none' or not self.first_reminder:
+            return None
+        delta_map = {
+            'daily': timedelta(days=1),
+            'weekly': timedelta(weeks=1),
+            'monthly': relativedelta(months=1),
+        }
+        new_first = self.first_reminder + delta_map[self.recurrence]
+        return Task.objects.create(
+            user=self.user,
+            category=self.category,
+            title=self.title,
+            description=self.description,
+            is_done=False,
+            recurrence=self.recurrence,
+            first_reminder=new_first,
+            repeat_reminder=self.repeat_reminder,
+            time_between_reminders=self.time_between_reminders,
+            sent_reminders=0,
+        )
 
 
 class TelegramConnection(models.Model):

@@ -85,7 +85,10 @@ class TaskViewSet(ModelViewSet):
         )
 
     def perform_update(self, serializer):
+        was_incomplete = not serializer.instance.is_done
         instance = serializer.save()
+        if was_incomplete and instance.is_done and instance.recurrence != 'none':
+            instance.clone_for_recurrence()
         logger.info(
             'Task updated: user_id=%s task_id=%s is_done=%s',
             self.request.user.id,

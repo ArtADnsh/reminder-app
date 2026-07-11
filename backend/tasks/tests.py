@@ -8,6 +8,8 @@ integration (mocked — no real Redis broker required).
 from datetime import timedelta
 from unittest.mock import patch, MagicMock
 
+from dateutil.relativedelta import relativedelta
+
 from django.contrib.auth import get_user_model
 from django.conf import settings
 from django.test import TestCase
@@ -2279,3 +2281,110 @@ class TaskCategoryFilterTests(AuthenticatedAPITestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         task.refresh_from_db()
         self.assertEqual(task.category, self.cat)
+
+
+# ---------------------------------------------------------------------------
+# 21. Recurring Tasks
+# ---------------------------------------------------------------------------
+
+class RecurringTaskTests(AuthenticatedAPITestCase):
+    """Cover Task.clone_for_recurrence and perform_update cloning logic."""
+
+    def test_daily_recurrence_clones_with_next_day(self):
+        """Completing a daily recurring task creates a clone due tomorrow."""
+        now = timezone.now()
+        task = Task.objects.create(
+            user=self.user, title='Daily Standup', is_done=False,
+            recurrence='daily', first_reminder=now,
+        )
+
+        self.client.patch(
+            self.task_detail_url(task.id), {'is_done': True}, format='json',
+        )
+
+        task.refresh_from_db()
+        self.assertTrue(task.is_done)
+        clone = Task.objects.filter(user=self.user, title='Daily Standup', is_done=False).exclude(pk=task.pk).first()
+        self.assertIsNotNone(clone)
+        self.assertAlmostEqual(clone.first_reminder, now + timedelta(days=1), delta=timedelta(seconds=5))
+        self.assertEqual(clone.sent_reminders, 0)
+        self.assertEqual(clone.recurrence, 'daily')
+
+    def test_weekly_recurrence_clones_with_next_week(self):
+        """Completing a weekly recurring task creates a clone due in 7 days."""
+        now = timezone.now()
+        task = Task.objects.create(
+            user=self.user, title='Weekly Review', is_done=False,
+            recurrence='weekly', first_reminder=now,
+        )
+
+        self.client.patch(
+            self.task_detail_url(task.id), {'is_done': True}, format='json',
+        )
+
+        clone = Task.objects.filter(user=self.user, title='Weekly Review', is_done=False).exclude(pk=task.pk).first()
+        self.assertIsNotNone(clone)
+        self.assertAlmostEqual(clone.first_reminder, now + timedelta(weeks=1), delta=timedelta(seconds=5))
+
+    def test_monthly_recurrence_clones_with_next_month(self):
+        """Completing a monthly recurring task creates a clone due in ~1 month."""
+        now = timezone.now()
+        task = Task.objects.create(
+            user=self.user, title='Monthly Report', is_done=False,
+            recurrence='monthly', first_reminder=now,
+        )
+
+        self.client.patch(
+            self.task_detail_url(task.id), {'is_done': True}, format='json',
+        )
+
+        clone = Task.objects.filter(user=self.user, title='Monthly Report', is_done=False).exclude(pk=task.pk).first()
+        self.assertIsNotNone(clone)
+        expected = now + relativedelta(months=1)
+        self.assertAlmostEqual(clone.first_reminder, expected, delta=timedelta(seconds=5))
+        self.assertEqual(clone.category, task.category)
+        self.assertEqual(clone.description, task.description)
+
+    def test_non_recurring_task_does_not_clone(self):
+        """Completing a task with recurrence='none' does NOT create a clone."""
+        task = Task.objects.create(
+            user=self.user, title='One Off', is_done=False,
+            recurrence='none', first_reminder=timezone.now(),
+        )
+
+        self.client.patch(
+            self.task_detail_url(task.id), {'is_done': True}, format='json',
+        )
+
+        self.assertEqual(Task.objects.filter(user=self.user, title='One Off').count(), 1)
+
+    def test_updating_already_completed_does_not_clone(self):
+        """Updating an ALREADY completed task does NOT trigger another clone."""
+        now = timezone.now()
+        task = Task.objects.create(
+            user=self.user, title='Already Done', is_done=True,
+            recurrence='daily', first_reminder=now,
+        )
+
+        self.client.patch(
+            self.task_detail_url(task.id), {'title': 'Renamed'}, format='json',
+        )
+
+        self.assertEqual(Task.objects.filter(user=self.user, title='Renamed').count(), 1)
+        self.assertEqual(Task.objects.filter(user=self.user, title='Already Done').count(), 0)
+
+    def test_clone_copies_category(self):
+        """Cloned task inherits the original's category."""
+        cat = Category.objects.create(user=self.user, name='Work')
+        task = Task.objects.create(
+            user=self.user, title='Categorized', is_done=False,
+            recurrence='daily', first_reminder=timezone.now(), category=cat,
+        )
+
+        self.client.patch(
+            self.task_detail_url(task.id), {'is_done': True}, format='json',
+        )
+
+        clone = Task.objects.filter(user=self.user, title='Categorized', is_done=False).exclude(pk=task.pk).first()
+        self.assertIsNotNone(clone)
+        self.assertEqual(clone.category, cat)

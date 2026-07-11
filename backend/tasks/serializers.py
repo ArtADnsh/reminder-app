@@ -31,6 +31,7 @@ class TaskSerializer(serializers.ModelSerializer):
             'description',
             'is_done',
             'category',
+            'recurrence',
             'first_reminder',
             'repeat_reminder',          # total number of reminders (includes the first one)
             'time_between_reminders',   # minutes between subsequent reminders
