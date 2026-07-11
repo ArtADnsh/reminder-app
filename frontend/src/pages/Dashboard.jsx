@@ -1,6 +1,7 @@
 import { toast } from 'react-toastify';
 import { useState, useEffect } from 'react';
 import axiosInstance from '../api/axiosInstance';
+import { categoryApi } from '../api/categoryApi';
 import TaskModal from '../components/TaskModal';
 import { subscribeToWebPush } from '../utils/webPush';
 
@@ -9,6 +10,8 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [activeFilter, setActiveFilter] = useState('all');
   const [activeStatus, setActiveStatus] = useState('pending');
+  const [activeCategory, setActiveCategory] = useState('all');
+  const [categories, setCategories] = useState([]);
   const [showPushBanner, setShowPushBanner] = useState(false);
 
   // State های مربوط به مودال
@@ -40,6 +43,16 @@ export default function Dashboard() {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    let cancelled = false;
+    categoryApi.fetchCategories()
+      .then((data) => {
+        if (!cancelled) setCategories(data);
+      })
+      .catch(console.error);
+    return () => { cancelled = true; };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -98,7 +111,10 @@ export default function Dashboard() {
       if (formData.repeat_reminder >= 2) {
         payload.time_between_reminders = formData.time_between_reminders;
       }
-      // اگر تیک نخورده باشد، این فیلدها اصلاً به سرور ارسال نمی‌شوند (Left Empty)
+      
+      if (formData.category) {
+        payload.category = formData.category;
+      }
 
       // ۳. ارسال بسته به سرور
       await axiosInstance.post('tasks/', payload);
@@ -259,6 +275,36 @@ export default function Dashboard() {
         isSubmitting={isSubmitting}
       />
 
+      {/* Category Chips */}
+      <div className="flex gap-2 overflow-x-auto pb-4 mb-4 hide-scrollbar">
+        <button
+          onClick={() => setActiveCategory('all')}
+          className={`px-4 py-1.5 rounded-full text-sm font-bold whitespace-nowrap transition-all border ${
+            activeCategory === 'all' 
+              ? 'bg-gray-800 text-white border-gray-800' 
+              : 'bg-white text-gray-600 border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+          }`}
+        >
+          همه دسته‌ها
+        </button>
+        {categories.map(cat => (
+          <button
+            key={cat.id}
+            onClick={() => setActiveCategory(cat.id)}
+            className={`px-4 py-1.5 rounded-full text-sm font-bold whitespace-nowrap transition-all border flex items-center gap-2`}
+            style={{
+              backgroundColor: activeCategory === cat.id ? cat.color : '#fff',
+              color: activeCategory === cat.id ? '#fff' : '#4B5563',
+              borderColor: activeCategory === cat.id ? cat.color : '#E5E7EB',
+              boxShadow: activeCategory === cat.id ? `0 0 0 2px #fff, 0 0 0 4px ${cat.color}66` : 'none'
+            }}
+          >
+            <span className="w-2 h-2 rounded-full" style={{ backgroundColor: activeCategory === cat.id ? '#fff' : cat.color }}></span>
+            {cat.name}
+          </button>
+        ))}
+      </div>
+
       {/* لیست تسک‌ها یا اسکلتون */}
       {loading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -266,7 +312,7 @@ export default function Dashboard() {
             <div key={i} className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 animate-pulse h-40"></div>
           ))}
         </div>
-      ) : tasks.length === 0 ? (
+      ) : tasks.filter(t => activeCategory === 'all' || t.category?.id === activeCategory).length === 0 ? (
         <div className="flex flex-col items-center justify-center h-full text-center py-20 bg-white rounded-2xl border border-gray-100 border-dashed">
           <div className="text-6xl mb-4 opacity-80">📭</div>
           <h3 className="text-xl font-bold text-gray-700 mb-2">
@@ -286,11 +332,12 @@ export default function Dashboard() {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {tasks.map((task) => (
+          {tasks.filter(t => activeCategory === 'all' || t.category?.id === activeCategory).map((task) => (
             <div
               key={task.id}
-              className={`bg-white p-5 rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition-all relative overflow-hidden group flex flex-col h-full
+              className={`bg-white p-5 rounded-xl border-y border-r border-l-4 shadow-sm hover:shadow-md transition-all relative overflow-hidden group flex flex-col h-full
                 ${task.is_done ? 'opacity-70 bg-gray-50' : ''}`}
+              style={{ borderLeftColor: task.category?.color || '#cbd5e1', borderTopColor: '#f3f4f6', borderRightColor: '#f3f4f6', borderBottomColor: '#f3f4f6' }}
             >
               {/* نشانگر رنگی وضعیت */}
               <div className={`absolute top-0 right-0 w-1.5 h-full transition-colors ${task.is_done ? 'bg-accent' : 'bg-primary'}`}></div>

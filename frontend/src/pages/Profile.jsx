@@ -3,6 +3,7 @@ import { toast } from 'react-toastify';
 import { userService } from '../api/userService';
 import { AuthContext } from '../context/authContext';
 import TelegramSettings from '../components/TelegramSettings';
+import CategoryManagement from '../components/CategoryManagement';
 
 export default function Profile() {
   const { updateUser, logout } = useContext(AuthContext);
@@ -221,6 +222,9 @@ export default function Profile() {
         </div>
 
       </div>
+      
+      {/* Category Management */}
+      <CategoryManagement />
       
       {/* Linked Accounts */}
       <TelegramSettings />

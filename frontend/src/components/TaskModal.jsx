@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { categoryApi } from '../api/categoryApi';
 
 const initialFormState = {
   title: '',
@@ -6,10 +7,18 @@ const initialFormState = {
   first_reminder: '',
   repeat_reminder: 1,
   time_between_reminders: 0,
+  category: '',
 };
 
 export default function TaskModal({ isOpen, onClose, onSubmit, isSubmitting }) {
   const [formData, setFormData] = useState(initialFormState);
+  const [categories, setCategories] = useState([]);
+
+  useEffect(() => {
+    if (isOpen) {
+      categoryApi.fetchCategories().then(setCategories).catch(console.error);
+    }
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -63,6 +72,26 @@ export default function TaskModal({ isOpen, onClose, onSubmit, isSubmitting }) {
               onChange={handleChange}
               className="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all"
             />
+          </div>
+
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-1">دسته‌بندی</label>
+            <div className="relative">
+              <select
+                name="category"
+                value={formData.category}
+                onChange={handleChange}
+                className="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all appearance-none"
+              >
+                <option value="">بدون دسته (عمومی)</option>
+                {categories.map(cat => (
+                  <option key={cat.id} value={cat.id}>{cat.name}</option>
+                ))}
+              </select>
+              <div className="absolute inset-y-0 left-0 flex items-center px-3 pointer-events-none text-gray-400">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
+              </div>
+            </div>
           </div>
 
           <div>
