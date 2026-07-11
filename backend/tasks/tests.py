@@ -9,6 +9,7 @@ from datetime import timedelta
 from unittest.mock import patch, MagicMock
 
 from django.contrib.auth import get_user_model
+from django.conf import settings
 from django.test import TestCase
 from django.urls import reverse
 from django.utils import timezone
@@ -17,7 +18,7 @@ from rest_framework.test import APITestCase
 
 from pywebpush import WebPushException
 
-from .models import Task, Notification, WebPushSubscription
+from .models import Task, Notification, WebPushSubscription, TelegramConnection
 from .serializers import TaskSerializer
 from .tasks import check_and_send_reminders, _send_reminder
 
@@ -1710,3 +1711,379 @@ class WebPushNotificationTests(TestCase):
         _send_reminder(task)
 
         self.assertTrue(WebPushSubscription.objects.filter(pk=sub.pk).exists())
+
+
+# ---------------------------------------------------------------------------
+# 13. Model __str__ coverage (models.py lines 41, 76)
+# ---------------------------------------------------------------------------
+
+class ModelStrTests(TestCase):
+    """Cover __str__ on WebPushSubscription and TelegramConnection."""
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.user = User.objects.create_user('struser', 'str@test.com', 'SecurePass123!')
+
+    def test_webpush_subscription_str(self):
+        sub = WebPushSubscription.objects.create(
+            user=self.user,
+            endpoint='https://example.com/push/a',
+            p256dh='key1',
+            auth='auth1',
+        )
+        result = str(sub)
+        self.assertIn('struser', result)
+        self.assertIn('WebPush(', result)
+        self.assertIn('https://example.com/push/a', result)
+
+    def test_telegram_connection_str_linked(self):
+        conn = TelegramConnection.objects.create(
+            user=self.user, chat_id='12345',
+        )
+        result = str(conn)
+        self.assertIn('struser', result)
+        self.assertIn('12345', result)
+
+    def test_telegram_connection_str_unlinked(self):
+        conn = TelegramConnection.objects.create(
+            user=self.user, chat_id=None,
+        )
+        self.assertIn('unlinked', str(conn))
+
+
+# ---------------------------------------------------------------------------
+# 14. telegram_utils.py coverage (lines 6-9)
+# ---------------------------------------------------------------------------
+
+class TelegramUtilsTests(TestCase):
+    """Cover send_telegram_notification in telegram_utils.py."""
+
+    @patch('tasks.telegram_utils.TeleBot')
+    @patch('tasks.telegram_utils.apihelper')
+    def test_send_telegram_sets_proxy_and_sends(self, mock_apihelper, mock_telebot):
+        from .telegram_utils import send_telegram_notification
+
+        mock_bot_instance = MagicMock()
+        mock_telebot.return_value = mock_bot_instance
+
+        send_telegram_notification('999', 'Hello there')
+
+        mock_apihelper.proxy = {'https': 'http://xray-proxy:10809'}
+        mock_telebot.assert_called_once_with(settings.TELEGRAM_BOT_TOKEN)
+        mock_bot_instance.send_message.assert_called_once_with('999', 'Hello there')
+
+
+# ---------------------------------------------------------------------------
+# 15. Telegram paths in _send_reminder (tasks.py lines 67-69, 73-74)
+# ---------------------------------------------------------------------------
+
+class TelegramReminderTests(TestCase):
+    """Cover the Telegram branch inside _send_reminder."""
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.user = User.objects.create_user('tguser', 'tg@test.com', 'SecurePass123!')
+
+    @patch('tasks.tasks.send_telegram_notification')
+    @patch('tasks.tasks.webpush')
+    @patch('tasks.tasks.send_mail')
+    def test_telegram_sent_when_connected(self, mock_mail, mock_wp, mock_tg):
+        """Lines 67-69: chat_id exists, send_telegram_notification is called."""
+        TelegramConnection.objects.create(user=self.user, chat_id='111222')
+        task = Task.objects.create(
+            user=self.user, title='TG Task',
+            first_reminder=timezone.now() - timedelta(minutes=5), is_done=False,
+        )
+
+        _send_reminder(task)
+
+        mock_tg.assert_called_once()
+        args = mock_tg.call_args[0]
+        self.assertEqual(args[0], '111222')
+        self.assertIn('TG Task', args[1])
+
+    @patch('tasks.tasks.send_telegram_notification')
+    @patch('tasks.tasks.webpush')
+    @patch('tasks.tasks.send_mail')
+    def test_telegram_skipped_when_no_connection(self, mock_mail, mock_wp, mock_tg):
+        """Lines 70-71: user has no TelegramConnection — send not called."""
+        task = Task.objects.create(
+            user=self.user, title='No TG',
+            first_reminder=timezone.now() - timedelta(minutes=5), is_done=False,
+        )
+
+        _send_reminder(task)
+
+        mock_tg.assert_not_called()
+
+    @patch('tasks.tasks.send_telegram_notification', side_effect=Exception('TG down'))
+    @patch('tasks.tasks.webpush')
+    @patch('tasks.tasks.send_mail')
+    def test_telegram_failure_does_not_crash(self, mock_mail, mock_wp, mock_tg):
+        """Lines 73-74: Telegram exception is caught, function continues."""
+        TelegramConnection.objects.create(user=self.user, chat_id='333')
+        task = Task.objects.create(
+            user=self.user, title='TG Fail',
+            first_reminder=timezone.now() - timedelta(minutes=5), is_done=False,
+        )
+
+        _send_reminder(task)
+
+        mock_tg.assert_called_once()
+
+
+# ---------------------------------------------------------------------------
+# 16. Web Push outer exception (tasks.py lines 108-109)
+# ---------------------------------------------------------------------------
+
+class WebPushPipelineFailureTests(TestCase):
+    """Cover the outer except block wrapping the web push pipeline."""
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.user = User.objects.create_user('wpfail', 'wpfail@test.com', 'SecurePass123!')
+
+    @patch('tasks.tasks.WebPushSubscription.objects.filter')
+    @patch('tasks.tasks.send_mail')
+    @patch('tasks.tasks.send_telegram_notification')
+    def test_web_push_outer_exception_caught(self, mock_tg, mock_mail, mock_filter):
+        """Lines 108-109: exception inside the web push try block is caught."""
+        mock_filter.side_effect = Exception('DB Error')
+        task = Task.objects.create(
+            user=self.user, title='WP Outer Fail',
+            first_reminder=timezone.now() - timedelta(minutes=5), is_done=False,
+        )
+
+        # Must not raise — the outer try/except catches it
+        _send_reminder(task)
+
+
+# ---------------------------------------------------------------------------
+# 17. check_and_send_reminders failure path (tasks.py lines 153-154)
+# ---------------------------------------------------------------------------
+
+class PeriodicReminderFailureTests(TestCase):
+    """Cover the except block in check_and_send_reminders."""
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.user = User.objects.create_user('periodic', 'periodic@test.com', 'SecurePass123!')
+
+    @patch('tasks.tasks._send_reminder', side_effect=Exception('pipeline exploded'))
+    def test_periodic_failure_does_not_crash_loop(self, mock_send):
+        """Lines 153-154: _send_reminder failure is caught, counter not incremented."""
+        task = Task.objects.create(
+            user=self.user, title='Boom',
+            first_reminder=timezone.now() - timedelta(minutes=5),
+            repeat_reminder=1, sent_reminders=0, is_done=False,
+        )
+        initial_sent = task.sent_reminders
+
+        check_and_send_reminders()
+
+        mock_send.assert_called_once()
+        task.refresh_from_db()
+        self.assertEqual(task.sent_reminders, initial_sent)
+
+
+# ---------------------------------------------------------------------------
+# 18. Serializer coverage (serializers.py lines 103-105, 136, 163-165, 168-175)
+# ---------------------------------------------------------------------------
+
+class WebPushSerializerTests(TestCase):
+    """Cover WebPushSubscriptionSerializer validate_keys and create."""
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.user = User.objects.create_user('wpser', 'wpser@test.com', 'SecurePass123!')
+
+    def test_validate_keys_missing_fields(self):
+        """Lines 163-164: keys dict missing p256dh raises error."""
+        from .serializers import WebPushSubscriptionSerializer
+        from rest_framework.test import APIRequestFactory
+
+        factory = APIRequestFactory()
+        request = factory.post('/api/webpush/subscribe/')
+        request.user = self.user
+
+        ser = WebPushSubscriptionSerializer(
+            data={'endpoint': 'https://example.com', 'keys': {'auth': 'a'}},
+            context={'request': request},
+        )
+        self.assertFalse(ser.is_valid())
+        self.assertIn('keys', ser.errors)
+
+    def test_validate_keys_valid(self):
+        """Line 165: valid keys returns value."""
+        from .serializers import WebPushSubscriptionSerializer
+        from rest_framework.test import APIRequestFactory
+
+        factory = APIRequestFactory()
+        request = factory.post('/api/webpush/subscribe/')
+        request.user = self.user
+
+        ser = WebPushSubscriptionSerializer(
+            data={
+                'endpoint': 'https://example.com/push/1',
+                'keys': {'p256dh': 'pk', 'auth': 'au'},
+            },
+            context={'request': request},
+        )
+        self.assertTrue(ser.is_valid(), ser.errors)
+
+    def test_create_updates_existing_subscription(self):
+        """Lines 168-175: create method uses update_or_create."""
+        from .serializers import WebPushSubscriptionSerializer
+        from rest_framework.test import APIRequestFactory
+
+        WebPushSubscription.objects.create(
+            user=self.user, endpoint='https://example.com/push/1',
+            p256dh='old', auth='old',
+        )
+
+        factory = APIRequestFactory()
+        request = factory.post('/api/webpush/subscribe/')
+        request.user = self.user
+
+        ser = WebPushSubscriptionSerializer(
+            data={
+                'endpoint': 'https://example.com/push/1',
+                'keys': {'p256dh': 'new', 'auth': 'new'},
+            },
+            context={'request': request},
+        )
+        self.assertTrue(ser.is_valid(), ser.errors)
+        obj = ser.save()
+        obj.refresh_from_db()
+        self.assertEqual(obj.p256dh, 'new')
+        self.assertEqual(WebPushSubscription.objects.filter(user=self.user).count(), 1)
+
+
+class TaskSerializerValidateTests(TestCase):
+    """Cover TaskSerializer.validate fallthrough (serializers.py lines 103-105)."""
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.user = User.objects.create_user('tsv', 'tsv@test.com', 'SecurePass123!')
+
+    def test_validate_returns_attrs_for_valid_repeat_with_interval(self):
+        """Lines 103-105: repeat >= 2 with valid interval returns attrs."""
+        future = timezone.now() + timedelta(hours=1)
+        ser = TaskSerializer(data={
+            'title': 'Valid Multi',
+            'first_reminder': future,
+            'repeat_reminder': 3,
+            'time_between_reminders': 15,
+        })
+        self.assertTrue(ser.is_valid(), ser.errors)
+
+
+class UserProfileSerializerTests(TestCase):
+    """Cover UserProfileSerializer.validate_username (serializers.py line 136)."""
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.user = User.objects.create_user('ups', 'ups@test.com', 'SecurePass123!')
+        cls.other = User.objects.create_user('taken', 'taken@test.com', 'SecurePass123!')
+
+    def test_validate_username_rejects_duplicate(self):
+        """Line 136: username already taken raises error."""
+        from .serializers import UserProfileSerializer
+        from rest_framework.test import APIRequestFactory
+
+        factory = APIRequestFactory()
+        request = factory.patch('/api/users/me/')
+        request.user = self.user
+
+        ser = UserProfileSerializer(
+            self.user, data={'username': 'taken'}, partial=True,
+            context={'request': request},
+        )
+        self.assertFalse(ser.is_valid())
+        self.assertIn('username', ser.errors)
+
+
+# ---------------------------------------------------------------------------
+# 19. View coverage (views.py lines 146, 225-226, 252-255, 265-267)
+# ---------------------------------------------------------------------------
+
+class LoginFailureWarningTests(AuthenticatedAPITestCase):
+    """Cover the failed-login warning branch (views.py line 146)."""
+
+    def test_failed_login_logs_warning(self):
+        """Line 146: wrong credentials hit the else/branch."""
+        response = self.client.post(
+            self.login_url,
+            {'username': 'nonexistent', 'password': 'BadPass!'},
+            format='json',
+        )
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+
+class NotificationPaginatedListTests(AuthenticatedAPITestCase):
+    """Cover the paginated response branch (views.py lines 225-226)."""
+
+    def test_list_with_unread_filter_returns_paginated(self):
+        """Lines 225-226: paginated queryset returns paginated response."""
+        for i in range(15):
+            Notification.objects.create(
+                user=self.user, title=f'N{i}', is_read=(i % 2 == 0),
+            )
+        notif_url = reverse('notification-list')
+
+        response = self.client.get(f'{notif_url}?unread=1')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIsInstance(response.data, list)
+        self.assertTrue(len(response.data) > 0)
+
+
+class WebPushSubscribeViewTests(AuthenticatedAPITestCase):
+    """Cover WebPushSubscribeView.post (views.py lines 252-255)."""
+
+    def test_subscribe_saves_valid_payload(self):
+        """Lines 252-255: valid subscription returns 201."""
+        url = reverse('webpush_subscribe')
+        payload = {
+            'endpoint': 'https://example.com/push/sub/1',
+            'keys': {'p256dh': 'testkey', 'auth': 'testauth'},
+        }
+
+        response = self.client.post(url, payload, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertTrue(
+            WebPushSubscription.objects.filter(user=self.user).exists(),
+        )
+
+    def test_subscribe_rejects_invalid_keys(self):
+        """Invalid keys payload returns 400."""
+        url = reverse('webpush_subscribe')
+        response = self.client.post(
+            url, {'endpoint': 'https://example.com', 'keys': {}}, format='json',
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+
+class TelegramLinkViewTests(AuthenticatedAPITestCase):
+    """Cover GetTelegramLinkView.get (views.py lines 265-267)."""
+
+    def test_get_link_creates_connection_and_returns_token(self):
+        """Lines 265-267: first call creates row, returns token + bot_username."""
+        url = reverse('telegram_link')
+
+        response = self.client.get(url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn('link_token', response.data)
+        self.assertIn('bot_username', response.data)
+        self.assertTrue(TelegramConnection.objects.filter(user=self.user).exists())
+
+    def test_get_link_returns_same_token_on_repeat_call(self):
+        """Repeated calls return the same link_token."""
+        url = reverse('telegram_link')
+
+        resp1 = self.client.get(url)
+        resp2 = self.client.get(url)
+
+        self.assertEqual(resp1.data['link_token'], resp2.data['link_token'])
