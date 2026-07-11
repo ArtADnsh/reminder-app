@@ -137,13 +137,16 @@ services:
         condition: service_healthy
 
   xray-proxy:
-    build: ./proxy
-    container_name: xray-proxy
-    restart: unless-stopped
-    ports:
-      - "10809:10809"
-    networks:
-      - app_network
+      build: ./proxy
+      container_name: xray-proxy
+      restart: unless-stopped
+      ports:
+        - "10809:10809"
+      volumes:
+        - ./proxy/config.json:/etc/xray/config.json:ro
+      command: /bin/sh -c "if [ -f /etc/xray/config.json ]; then /usr/bin/xray -config /etc/xray/config.json; else echo 'No config found, proxy sleeping...'; sleep infinity; fi"
+      networks:
+        - app_network
 
   telegram_bot:
     image: reminder_backend:latest
