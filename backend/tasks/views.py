@@ -267,4 +267,13 @@ class GetTelegramLinkView(APIView):
         return Response({
             'link_token': str(conn.link_token),
             'bot_username': bot_username,
+            'is_connected': bool(conn.chat_id),
         })
+
+    def delete(self, request):
+        try:
+            conn = TelegramConnection.objects.get(user=request.user)
+        except TelegramConnection.DoesNotExist:
+            return Response(status=status.HTTP_404_NOT_FOUND)
+        conn.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)

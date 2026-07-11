@@ -10,3 +10,8 @@ export const getTelegramLinkToken = async () => {
   const response = await axiosInstance.get('telegram/link/');
   return response.data;
 };
+
+export const deleteTelegramConnection = async () => {
+  const response = await axiosInstance.delete('telegram/link/');
+  return response.data;
+};

@@ -2,7 +2,6 @@ import { toast } from 'react-toastify';
 import { useState, useEffect } from 'react';
 import axiosInstance from '../api/axiosInstance';
 import TaskModal from '../components/TaskModal';
-import TelegramConnectButton from '../components/TelegramConnectButton';
 import { subscribeToWebPush } from '../utils/webPush';
 
 export default function Dashboard() {
@@ -195,15 +194,12 @@ export default function Dashboard() {
       {/* هدر داشبورد */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
         <h2 className="text-2xl font-bold text-gray-800">یادآورهای فعال</h2>
-        <div className="flex flex-wrap items-center gap-3">
-          <TelegramConnectButton />
-          <button
-            onClick={openModal}
-            className="px-5 py-2.5 bg-primary text-white font-bold rounded-lg shadow-md hover:bg-blue-600 transition-colors flex items-center gap-2"
-          >
-            <span className="text-xl leading-none">+</span> یادآور جدید
-          </button>
-        </div>
+        <button
+          onClick={openModal}
+          className="px-5 py-2.5 bg-primary text-white font-bold rounded-lg shadow-md hover:bg-blue-600 transition-colors flex items-center gap-2"
+        >
+          <span className="text-xl leading-none">+</span> یادآور جدید
+        </button>
       </div>
 
       {/* نوار فیلترها */}

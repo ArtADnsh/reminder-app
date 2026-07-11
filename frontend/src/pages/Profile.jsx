@@ -2,6 +2,7 @@ import { useState, useEffect, useContext } from 'react';
 import { toast } from 'react-toastify';
 import { userService } from '../api/userService';
 import { AuthContext } from '../context/authContext';
+import TelegramSettings from '../components/TelegramSettings';
 
 export default function Profile() {
   const { updateUser, logout } = useContext(AuthContext);
@@ -220,6 +221,9 @@ export default function Profile() {
         </div>
 
       </div>
+      
+      {/* Linked Accounts */}
+      <TelegramSettings />
     </div>
   );
 }

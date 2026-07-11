@@ -2087,3 +2087,21 @@ class TelegramLinkViewTests(AuthenticatedAPITestCase):
         resp2 = self.client.get(url)
 
         self.assertEqual(resp1.data['link_token'], resp2.data['link_token'])
+
+    def test_delete_removes_connection(self):
+        """DELETE removes the TelegramConnection and returns 204."""
+        url = reverse('telegram_link')
+        TelegramConnection.objects.create(user=self.user, chat_id='999')
+
+        response = self.client.delete(url)
+
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertFalse(TelegramConnection.objects.filter(user=self.user).exists())
+
+    def test_delete_returns_404_when_no_connection(self):
+        """DELETE returns 404 when user has no TelegramConnection."""
+        url = reverse('telegram_link')
+
+        response = self.client.delete(url)
+
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
