@@ -16,7 +16,7 @@ from django.test import TestCase
 from django.urls import reverse
 from django.utils import timezone
 from rest_framework import status
-from rest_framework.test import APITestCase
+from rest_framework.test import APITestCase, APIClient
 
 from pywebpush import WebPushException
 
@@ -963,6 +963,23 @@ class TaskFilterTests(AuthenticatedAPITestCase):
 
         ids = [item['id'] for item in response.data]
         self.assertEqual(ids, sorted(ids, reverse=True))
+
+    def test_is_recurring_filter_excludes_none(self):
+        """?is_recurring=true returns only tasks with recurrence != 'none'."""
+        Task.objects.create(
+            user=self.user, title='Recurring', first_reminder=timezone.now(),
+            recurrence='daily',
+        )
+        Task.objects.create(
+            user=self.user, title='Not Recurring', first_reminder=timezone.now(),
+            recurrence='none',
+        )
+
+        response = self._get('?is_recurring=true')
+
+        titles = self._titles(response)
+        self.assertIn('Recurring', titles)
+        self.assertNotIn('Not Recurring', titles)
 
 
 # ---------------------------------------------------------------------------
@@ -2388,3 +2405,123 @@ class RecurringTaskTests(AuthenticatedAPITestCase):
         clone = Task.objects.filter(user=self.user, title='Categorized', is_done=False).exclude(pk=task.pk).first()
         self.assertIsNotNone(clone)
         self.assertEqual(clone.category, cat)
+
+    def test_clone_sets_next_cycle_generated_flag(self):
+        """clone_for_recurrence marks the original task's flag."""
+        task = Task.objects.create(
+            user=self.user, title='Flag Test', is_done=False,
+            recurrence='daily', first_reminder=timezone.now(),
+        )
+
+        self.client.patch(
+            self.task_detail_url(task.id), {'is_done': True}, format='json',
+        )
+
+        task.refresh_from_db()
+        self.assertTrue(task.next_cycle_generated)
+
+
+class AutoCloneOnFinalReminderTests(TestCase):
+    """Cover auto-cloning when sent_reminders reaches repeat_reminder."""
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.user = User.objects.create_user('autoclone', 'ac@test.com', 'SecurePass123!')
+
+    @patch('tasks.tasks.webpush')
+    @patch('tasks.tasks.send_mail')
+    def test_auto_clone_when_final_reminder_sent(self, mock_mail, mock_webpush):
+        """When sent_reminders == repeat_reminder, next cycle is created."""
+        now = timezone.now() - timedelta(hours=2)
+        task = Task.objects.create(
+            user=self.user, title='Auto Daily', is_done=False,
+            recurrence='daily', first_reminder=now,
+            repeat_reminder=2, time_between_reminders=30, sent_reminders=1,
+        )
+
+        check_and_send_reminders()
+
+        task.refresh_from_db()
+        self.assertEqual(task.sent_reminders, 2)
+        self.assertTrue(task.next_cycle_generated)
+        clone = Task.objects.filter(
+            user=self.user, title='Auto Daily', is_done=False,
+        ).exclude(pk=task.pk).first()
+        self.assertIsNotNone(clone)
+        self.assertEqual(clone.sent_reminders, 0)
+        self.assertEqual(clone.recurrence, 'daily')
+
+    @patch('tasks.tasks.webpush')
+    @patch('tasks.tasks.send_mail')
+    def test_no_clone_when_not_final_reminder(self, mock_mail, mock_webpush):
+        """Clone is NOT created when sent_reminders < repeat_reminder."""
+        now = timezone.now() - timedelta(hours=2)
+        Task.objects.create(
+            user=self.user, title='Not Final', is_done=False,
+            recurrence='daily', first_reminder=now,
+            repeat_reminder=5, time_between_reminders=30, sent_reminders=1,
+        )
+
+        check_and_send_reminders()
+
+        self.assertEqual(Task.objects.filter(user=self.user, title='Not Final').count(), 1)
+
+    @patch('tasks.tasks.webpush')
+    @patch('tasks.tasks.send_mail')
+    def test_no_clone_for_non_recurring(self, mock_mail, mock_webpush):
+        """Non-recurring task reaching its limit does NOT create a clone."""
+        now = timezone.now() - timedelta(hours=2)
+        task = Task.objects.create(
+            user=self.user, title='One Timer', is_done=False,
+            recurrence='none', first_reminder=now,
+            repeat_reminder=1, sent_reminders=0,
+        )
+
+        check_and_send_reminders()
+
+        self.assertEqual(Task.objects.filter(user=self.user, title='One Timer').count(), 1)
+
+    @patch('tasks.tasks.webpush')
+    @patch('tasks.tasks.send_mail')
+    def test_manual_complete_before_final_still_clones(self, mock_mail, mock_webpush):
+        """Manually completing a recurring task before final reminder still clones."""
+        task = Task.objects.create(
+            user=self.user, title='Early Complete', is_done=False,
+            recurrence='weekly', first_reminder=timezone.now() + timedelta(hours=1),
+            repeat_reminder=1, sent_reminders=0,
+        )
+
+        client = APIClient()
+        client.force_authenticate(user=self.user)
+        response = client.patch(
+            reverse('task-detail', kwargs={'pk': task.id}),
+            {'is_done': True}, format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        task.refresh_from_db()
+        self.assertTrue(task.is_done)
+        self.assertTrue(task.next_cycle_generated)
+        clone = Task.objects.filter(
+            user=self.user, title='Early Complete', is_done=False,
+        ).exclude(pk=task.pk).first()
+        self.assertIsNotNone(clone)
+
+    @patch('tasks.tasks.webpush')
+    @patch('tasks.tasks.send_mail')
+    def test_no_double_clone_when_flag_set(self, mock_mail, mock_webpush):
+        """If next_cycle_generated is already True, no second clone is created."""
+        now = timezone.now() - timedelta(hours=2)
+        task = Task.objects.create(
+            user=self.user, title='No Double', is_done=False,
+            recurrence='daily', first_reminder=now,
+            repeat_reminder=1, sent_reminders=0,
+            next_cycle_generated=True,
+        )
+
+        check_and_send_reminders()
+
+        self.assertEqual(
+            Task.objects.filter(user=self.user, title='No Double', is_done=False)
+            .exclude(pk=task.pk).count(), 0,
+        )

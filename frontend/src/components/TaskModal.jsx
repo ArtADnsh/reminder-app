@@ -8,17 +8,36 @@ const initialFormState = {
   repeat_reminder: 1,
   time_between_reminders: 0,
   category: '',
+  recurrence: 'none',
 };
 
-export default function TaskModal({ isOpen, onClose, onSubmit, isSubmitting }) {
+export default function TaskModal({ isOpen, onClose, onSubmit, isSubmitting, taskToEdit }) {
   const [formData, setFormData] = useState(initialFormState);
   const [categories, setCategories] = useState([]);
 
   useEffect(() => {
     if (isOpen) {
       categoryApi.fetchCategories().then(setCategories).catch(console.error);
+      if (taskToEdit) {
+        const formatForInput = (isoString) => {
+          if (!isoString) return '';
+          const d = new Date(isoString);
+          return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+        };
+        setFormData({
+          title: taskToEdit.title || '',
+          description: taskToEdit.description || '',
+          first_reminder: formatForInput(taskToEdit.first_reminder),
+          repeat_reminder: taskToEdit.repeat_reminder || 1,
+          time_between_reminders: taskToEdit.time_between_reminders || 0,
+          category: taskToEdit.category?.id || taskToEdit.category || '',
+          recurrence: taskToEdit.recurrence || 'none',
+        });
+      } else {
+        setFormData(initialFormState);
+      }
     }
-  }, [isOpen]);
+  }, [isOpen, taskToEdit]);
 
   if (!isOpen) return null;
 
@@ -49,7 +68,7 @@ export default function TaskModal({ isOpen, onClose, onSubmit, isSubmitting }) {
         onClick={(e) => e.stopPropagation()}
       >
         <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
-          <h3 className="text-lg font-bold text-gray-800">➕ ثبت یادآور جدید</h3>
+          <h3 className="text-lg font-bold text-gray-800">{taskToEdit ? '✏️ ویرایش یادآور' : '➕ ثبت یادآور جدید'}</h3>
           <button
             onClick={handleClose}
             className="text-gray-400 hover:text-red-500 transition-colors focus:outline-none"
@@ -104,6 +123,31 @@ export default function TaskModal({ isOpen, onClose, onSubmit, isSubmitting }) {
               onChange={handleChange}
               className="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all resize-none"
             ></textarea>
+          </div>
+
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-2">تکرار دوره‌ای (Recurrence)</label>
+            <div className="flex flex-wrap gap-2">
+              {[
+                { id: 'none', label: 'بدون تکرار' },
+                { id: 'daily', label: 'روزانه' },
+                { id: 'weekly', label: 'هفتگی' },
+                { id: 'monthly', label: 'ماهانه' }
+              ].map(option => (
+                <button
+                  key={option.id}
+                  type="button"
+                  onClick={() => setFormData({ ...formData, recurrence: option.id })}
+                  className={`px-4 py-2 rounded-lg text-sm font-bold transition-all border ${
+                    formData.recurrence === option.id 
+                      ? 'bg-primary text-white border-primary shadow-md' 
+                      : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'
+                  }`}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
           </div>
 
           {/* یک گرید واحد با ۳ ستون */}

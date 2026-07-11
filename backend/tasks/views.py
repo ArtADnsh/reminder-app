@@ -74,6 +74,10 @@ class TaskViewSet(ModelViewSet):
         if category_id:
             qs = qs.filter(category_id=category_id)
 
+        is_recurring = self.request.query_params.get('is_recurring')
+        if is_recurring in ('1', 'true', 'True'):
+            qs = qs.exclude(recurrence='none')
+
         return qs.order_by('-id')
 
     def perform_create(self, serializer):

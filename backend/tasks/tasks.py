@@ -150,6 +150,17 @@ def check_and_send_reminders():
                     'Periodic reminder sent: task_id=%s sent_reminders=%s',
                     task.id, task.sent_reminders,
                 )
+                if (
+                    task.sent_reminders >= repeat_limit
+                    and task.recurrence != 'none'
+                    and not task.next_cycle_generated
+                ):
+                    clone = task.clone_for_recurrence()
+                    if clone:
+                        logger.info(
+                            'Recurring clone created: original_id=%s clone_id=%s',
+                            task.id, clone.id,
+                        )
             except Exception:
                 logger.error(
                     'Periodic reminder failed: task_id=%s', task.id, exc_info=True,

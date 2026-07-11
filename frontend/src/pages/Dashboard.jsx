@@ -18,8 +18,12 @@ export default function Dashboard() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalKey, setModalKey] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [taskToEdit, setTaskToEdit] = useState(null);
 
-  const openModal = () => {
+  const openModal = (task = null) => {
+    // If event is passed accidentally, ensure it's not set as task
+    if (task && task.nativeEvent) task = null;
+    setTaskToEdit(task);
     setModalKey((key) => key + 1);
     setIsModalOpen(true);
   };
@@ -27,7 +31,12 @@ export default function Dashboard() {
   const buildFetchUrl = () => {
     const params = new URLSearchParams();
     if (activeFilter !== 'all') params.append('filter', activeFilter);
-    if (activeStatus !== 'all') params.append('status', activeStatus);
+    if (activeStatus === 'recurring') {
+      params.append('status', 'pending');
+      params.append('is_recurring', '1');
+    } else if (activeStatus !== 'all') {
+      params.append('status', activeStatus);
+    }
     const qs = params.toString();
     return qs ? `tasks/?${qs}` : 'tasks/';
   };
@@ -95,8 +104,8 @@ export default function Dashboard() {
     }
   };
 
-// هندل کردن ثبت تسک جدید با Payload هوشمند
-  const handleCreateTask = async (formData) => {
+// هندل کردن ثبت و ویرایش تسک با Payload هوشمند
+  const handleSubmitTask = async (formData) => {
     setIsSubmitting(true);
     try {
       // ۱. ساخت بسته پایه (فیلدهایی که همیشه باید فرستاده شوند)
@@ -115,13 +124,20 @@ export default function Dashboard() {
       if (formData.category) {
         payload.category = formData.category;
       }
+      
+      payload.recurrence = formData.recurrence || 'none';
 
       // ۳. ارسال بسته به سرور
-      await axiosInstance.post('tasks/', payload);
+      if (taskToEdit) {
+        await axiosInstance.patch(`tasks/${taskToEdit.id}/`, payload);
+        toast.success('یادآور با موفقیت ویرایش شد 🚀');
+      } else {
+        await axiosInstance.post('tasks/', payload);
+        toast.success('یادآور با موفقیت ثبت شد 🚀');
+      }
 
       setIsModalOpen(false); // بستن مودال
       fetchTasks(); // رفرش لیست
-      toast.success('یادآور با موفقیت ثبت شد 🚀');
     } catch (error) {
       console.error('خطا در ثبت یادآور:', error);
       // خواندن دقیق ارورهای جنگو برای نمایش در پاپ‌آپ
@@ -248,7 +264,8 @@ export default function Dashboard() {
           {[
             { id: 'all', label: 'همه وضعیت‌ها' },
             { id: 'pending', label: 'در انتظار ⏳' },
-            { id: 'completed', label: 'انجام شده ✅' }
+            { id: 'completed', label: 'انجام شده ✅' },
+            { id: 'recurring', label: 'دوره‌ای 🔁' }
           ].map(status => (
             <button
               key={status.id}
@@ -266,13 +283,14 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* مودال ساخت تسک */}
+      {/* مودال ساخت و ویرایش تسک */}
       <TaskModal
         key={modalKey}
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
-        onSubmit={handleCreateTask}
+        onSubmit={handleSubmitTask}
         isSubmitting={isSubmitting}
+        taskToEdit={taskToEdit}
       />
 
       {/* Category Chips */}
@@ -316,15 +334,19 @@ export default function Dashboard() {
         <div className="flex flex-col items-center justify-center h-full text-center py-20 bg-white rounded-2xl border border-gray-100 border-dashed">
           <div className="text-6xl mb-4 opacity-80">📭</div>
           <h3 className="text-xl font-bold text-gray-700 mb-2">
-            {activeFilter === 'all' ? 'هیچ یادآوری وجود ندارد' : 'یادآوری برای این بازه زمانی یافت نشد'}
+            {activeStatus === 'recurring' 
+              ? 'شما هیچ تسک دوره‌ای یا روتینی ندارید.' 
+              : (activeFilter === 'all' ? 'هیچ یادآوری وجود ندارد' : 'یادآوری برای این بازه زمانی یافت نشد')}
           </h3>
           <p className="text-gray-500 mb-6 max-w-sm">
-            {activeFilter === 'all' 
-              ? 'اولین یادآور خود را ثبت کنید تا سیستم پردازش‌های Celery کار خود را آغاز کند.'
-              : 'بازه‌های زمانی دیگر را بررسی کنید یا یادآور جدیدی بسازید.'}
+            {activeStatus === 'recurring'
+              ? 'یک روتین جدید بسازید تا ما آن را به صورت خودکار به شما یادآوری کنیم.'
+              : (activeFilter === 'all' 
+                ? 'اولین یادآور خود را ثبت کنید تا سیستم پردازش‌های Celery کار خود را آغاز کند.'
+                : 'بازه‌های زمانی دیگر را بررسی کنید یا یادآور جدیدی بسازید.')}
           </p>
           <button
-            onClick={openModal}
+            onClick={() => openModal()}
             className="px-6 py-2.5 border-2 border-primary text-primary font-bold rounded-lg hover:bg-blue-50 transition-colors"
           >
             ثبت یادآور جدید
@@ -335,8 +357,9 @@ export default function Dashboard() {
           {tasks.filter(t => activeCategory === 'all' || t.category?.id === activeCategory).map((task) => (
             <div
               key={task.id}
-              className={`bg-white p-5 rounded-xl border border-gray-100 border-r-[6px] shadow-sm hover:shadow-md transition-all relative overflow-hidden group flex flex-col h-full
-                ${task.is_done ? 'opacity-70 bg-gray-50' : ''}`}
+              onClick={() => openModal(task)}
+              className={`p-5 rounded-xl border border-gray-100 border-r-[6px] shadow-sm hover:shadow-md transition-all relative overflow-hidden group flex flex-col h-full cursor-pointer
+                ${task.is_done ? 'opacity-70 bg-gray-50' : task.recurrence && task.recurrence !== 'none' ? 'bg-indigo-50/60 border-indigo-100' : 'bg-white'}`}
               style={{ borderRightColor: task.is_done ? '#2ecc71' : (task.category?.color || '#cbd5e1') }}
             >
 
@@ -346,7 +369,10 @@ export default function Dashboard() {
                 </h3>
                 {/* دکمه تغییر وضعیت (چک‌باکس استایلیش) */}
                 <button
-                  onClick={() => handleToggleDone(task.id, task.is_done)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleToggleDone(task.id, task.is_done);
+                  }}
                   className={`shrink-0 w-7 h-7 rounded-md flex items-center justify-center transition-colors border-2 
                     ${task.is_done ? 'bg-accent border-accent text-white' : 'border-gray-300 hover:border-accent text-transparent'}`}
                   title={task.is_done ? "علامت‌گذاری به عنوان انجام نشده" : "علامت‌گذاری به عنوان انجام شده"}
@@ -371,6 +397,15 @@ export default function Dashboard() {
                       year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
                     })}
                   </span>
+                  
+                  {task.recurrence && task.recurrence !== 'none' && (
+                    <span className="flex items-center gap-1 text-primary mt-0.5">
+                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                      </svg>
+                      {task.recurrence === 'daily' ? 'تکرار روزانه' : task.recurrence === 'weekly' ? 'تکرار هفتگی' : 'تکرار ماهانه'}
+                    </span>
+                  )}
                   {task.repeat_reminder > 1 ? (
                     <span className="flex items-center gap-1 text-primary">
                       <span>🔁</span> {task.repeat_reminder} بار، هر {task.time_between_reminders || 0} دقیقه
@@ -384,7 +419,10 @@ export default function Dashboard() {
 
                 {/* دکمه حذف */}
                 <button
-                  onClick={() => handleDeleteTask(task.id)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleDeleteTask(task.id);
+                  }}
                   className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
                   title="حذف یادآور"
                 >

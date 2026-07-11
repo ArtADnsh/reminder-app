@@ -79,6 +79,7 @@ class Task(models.Model):
     time_between_reminders = models.PositiveIntegerField(null=True, blank=True)
 
     sent_reminders = models.PositiveIntegerField(default=0)
+    next_cycle_generated = models.BooleanField(default=False)
 
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -96,12 +97,17 @@ class Task(models.Model):
     def clone_for_recurrence(self):
         if self.recurrence == 'none' or not self.first_reminder:
             return None
+
         delta_map = {
             'daily': timedelta(days=1),
             'weekly': timedelta(weeks=1),
             'monthly': relativedelta(months=1),
         }
         new_first = self.first_reminder + delta_map[self.recurrence]
+
+        self.next_cycle_generated = True
+        self.save(update_fields=['next_cycle_generated'])
+
         return Task.objects.create(
             user=self.user,
             category=self.category,
@@ -113,6 +119,7 @@ class Task(models.Model):
             repeat_reminder=self.repeat_reminder,
             time_between_reminders=self.time_between_reminders,
             sent_reminders=0,
+            next_cycle_generated=False,
         )
 
 
