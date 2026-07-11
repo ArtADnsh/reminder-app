@@ -335,12 +335,10 @@ export default function Dashboard() {
           {tasks.filter(t => activeCategory === 'all' || t.category?.id === activeCategory).map((task) => (
             <div
               key={task.id}
-              className={`bg-white p-5 rounded-xl border-y border-r border-l-4 shadow-sm hover:shadow-md transition-all relative overflow-hidden group flex flex-col h-full
+              className={`bg-white p-5 rounded-xl border border-gray-100 border-r-[6px] shadow-sm hover:shadow-md transition-all relative overflow-hidden group flex flex-col h-full
                 ${task.is_done ? 'opacity-70 bg-gray-50' : ''}`}
-              style={{ borderLeftColor: task.category?.color || '#cbd5e1', borderTopColor: '#f3f4f6', borderRightColor: '#f3f4f6', borderBottomColor: '#f3f4f6' }}
+              style={{ borderRightColor: task.is_done ? '#2ecc71' : (task.category?.color || '#cbd5e1') }}
             >
-              {/* نشانگر رنگی وضعیت */}
-              <div className={`absolute top-0 right-0 w-1.5 h-full transition-colors ${task.is_done ? 'bg-accent' : 'bg-primary'}`}></div>
 
               <div className="flex justify-between items-start mb-2 pr-2">
                 <h3 className={`text-lg font-bold truncate pr-2 ${task.is_done ? 'text-gray-500 line-through' : 'text-gray-800'}`}>
