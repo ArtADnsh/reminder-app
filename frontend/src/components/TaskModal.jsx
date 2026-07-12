@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { X } from 'lucide-react';
 import { toast } from 'react-toastify';
 import axiosInstance from '../api/axiosInstance';
@@ -6,6 +7,8 @@ import Button from './ui/Button';
 import Input from './ui/Input';
 
 export default function TaskModal({ isOpen, onClose, taskToEdit, categories = [], onSaved, initialMode = 'edit' }) {
+  const { t, i18n } = useTranslation();
+  const currentLocale = i18n.language === 'fa' ? 'fa-IR' : 'en-US';
   const [mode, setMode] = useState(initialMode);
   const [form, setForm] = useState({
     title: '', description: '', first_reminder: '', category: '', 
@@ -31,7 +34,7 @@ export default function TaskModal({ isOpen, onClose, taskToEdit, categories = []
   const handleSubmit = async (e) => {
     e.preventDefault();
     const errs = {};
-    if (!form.title.trim()) errs.title = 'عنوان الزامی است';
+    if (!form.title.trim()) errs.title = t('modal.titleRequired');
     if (Object.keys(errs).length) return setErrors(errs);
     const payload = {
       title: form.title,
@@ -47,14 +50,14 @@ export default function TaskModal({ isOpen, onClose, taskToEdit, categories = []
     try {
       if (taskToEdit) {
         await axiosInstance.patch(`tasks/${taskToEdit.id}/`, payload);
-        toast.success('یادآور به‌روزرسانی شد');
+        toast.success(t('modal.updatedSuccess'));
       } else {
         await axiosInstance.post('tasks/', payload);
-        toast.success('یادآور اضافه شد');
+        toast.success(t('modal.addedSuccess'));
       }
       onSaved?.();
     } catch {
-      toast.error('خطا در ذخیرهسازی');
+      toast.error(t('modal.saveError'));
     } finally {
       setSubmitting(false);
     }
@@ -70,9 +73,9 @@ export default function TaskModal({ isOpen, onClose, taskToEdit, categories = []
       >
         <div className="flex items-center justify-between px-5 h-14 border-b border-border">
           <h2 className="font-display font-semibold text-lg">
-            {mode === 'view' ? 'جزئیات یادآور' : taskToEdit ? 'ویرایش یادآور' : 'یادآور جدید'}
+            {mode === 'view' ? t('modal.viewTitle') : taskToEdit ? t('modal.editTitle') : t('modal.newTitle')}
           </h2>
-          <button onClick={onClose} aria-label="بستن" className="p-2 rounded-md hover:bg-surface-2">
+          <button onClick={onClose} aria-label={t('modal.close')} className="p-2 rounded-md hover:bg-surface-2">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -90,33 +93,33 @@ export default function TaskModal({ isOpen, onClose, taskToEdit, categories = []
             
             <div className="grid grid-cols-2 gap-4 pt-4 border-t border-border">
               <div>
-                <div className="text-xs text-muted mb-1">زمان یادآوری</div>
+                <div className="text-xs text-muted mb-1">{t('modal.reminderTime')}</div>
                 <div className="font-medium text-sm">
-                  {form.first_reminder ? new Date(form.first_reminder).toLocaleString('fa-IR', {
+                  {form.first_reminder ? new Date(form.first_reminder).toLocaleString(currentLocale, {
                     year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit'
                   }) : '—'}
                 </div>
               </div>
               
               <div>
-                <div className="text-xs text-muted mb-1">دسته‌بندی</div>
+                <div className="text-xs text-muted mb-1">{t('modal.category')}</div>
                 <div className="font-medium text-sm">
-                  {categories.find(c => c.id == form.category)?.name || 'بدون دسته'}
+                  {categories.find(c => c.id == form.category)?.name || t('modal.noCategory')}
                 </div>
               </div>
 
               {form.recurrence !== 'none' && (
                 <>
                   <div>
-                    <div className="text-xs text-muted mb-1">تکرار</div>
+                    <div className="text-xs text-muted mb-1">{t('modal.recurrence')}</div>
                     <div className="font-medium text-sm text-primary">
-                      {form.recurrence === 'daily' ? 'روزانه' : form.recurrence === 'weekly' ? 'هفتگی' : 'ماهانه'}
+                      {form.recurrence === 'daily' ? t('task.daily') : form.recurrence === 'weekly' ? t('task.weekly') : t('task.monthly')}
                     </div>
                   </div>
                   <div>
-                    <div className="text-xs text-muted mb-1">تنظیمات تکرار</div>
+                    <div className="text-xs text-muted mb-1">{t('modal.recurrenceSettings')}</div>
                     <div className="font-medium text-sm">
-                      تعداد: {form.repeat_reminder} بار (فاصله: {form.time_between_reminders} دقیقه)
+                      {t('task.countLabel')} {form.repeat_reminder} {t('modal.timesInterval')} {form.time_between_reminders} {t('modal.minutesSuffix')}
                     </div>
                   </div>
                 </>
@@ -124,40 +127,40 @@ export default function TaskModal({ isOpen, onClose, taskToEdit, categories = []
             </div>
 
             <div className="pt-2 flex justify-end">
-              <Button onClick={() => setMode('edit')}>ویرایش یادآور</Button>
+              <Button onClick={() => setMode('edit')}>{t('modal.editBtn')}</Button>
             </div>
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="p-5 space-y-4">
           <Input
-            label="عنوان"
+            label={t('modal.fieldTitle')}
             value={form.title}
             onChange={(e) => setForm({ ...form, title: e.target.value })}
             error={errors.title}
-            placeholder="مثلاً: خرید نان"
+            placeholder={t('modal.placeholderTitle')}
           />
 
           <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-medium">توضیحات</label>
+            <label className="text-sm font-medium">{t('modal.fieldDesc')}</label>
             <textarea
               rows={3}
               value={form.description}
               onChange={(e) => setForm({ ...form, description: e.target.value })}
               className="px-3 py-2 rounded-[10px] border border-border bg-surface text-foreground
                 placeholder:text-muted resize-none focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
-              placeholder="جزئیات..."
+              placeholder={t('modal.placeholderDesc')}
             />
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Input
-              label="تاریخ و ساعت"
+              label={t('modal.fieldDateTime')}
               type="datetime-local"
               value={form.first_reminder}
               onChange={(e) => setForm({ ...form, first_reminder: e.target.value })}
             />
             <div className="flex flex-col gap-1.5">
-              <label className="text-sm font-medium">دسته</label>
+              <label className="text-sm font-medium">{t('modal.fieldCategory')}</label>
               <select
                 value={form.category}
                 onChange={(e) => setForm({ ...form, category: e.target.value })}
@@ -172,13 +175,13 @@ export default function TaskModal({ isOpen, onClose, taskToEdit, categories = []
           </div>
 
           <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-medium">تکرار دوره‌ای</label>
+            <label className="text-sm font-medium">{t('modal.fieldRecurrence')}</label>
             <div className="flex gap-2">
               {[
-                { id: 'none', label: 'بدون تکرار' },
-                { id: 'daily', label: 'روزانه' },
-                { id: 'weekly', label: 'هفتگی' },
-                { id: 'monthly', label: 'ماهانه' }
+                { id: 'none', labelKey: 'modal.recurrenceNone' },
+                { id: 'daily', labelKey: 'task.daily' },
+                { id: 'weekly', labelKey: 'task.weekly' },
+                { id: 'monthly', labelKey: 'task.monthly' }
               ].map(opt => (
                 <button
                   key={opt.id}
@@ -189,7 +192,7 @@ export default function TaskModal({ isOpen, onClose, taskToEdit, categories = []
                       ? 'bg-primary text-white border-primary' 
                       : 'bg-surface text-foreground-soft border-border hover:bg-surface-2'}`}
                 >
-                  {opt.label}
+                  {t(opt.labelKey)}
                 </button>
               ))}
             </div>
@@ -197,17 +200,17 @@ export default function TaskModal({ isOpen, onClose, taskToEdit, categories = []
 
           <div className="grid grid-cols-2 gap-4">
             <Input
-              label="تعداد کل دفعات"
+              label={t('modal.fieldCount')}
               type="number"
               min="1"
               value={form.repeat_reminder}
               onChange={(e) => setForm({ ...form, repeat_reminder: parseInt(e.target.value) || '' })}
             />
             <Input
-              label="فاصله (دقیقه)"
+              label={t('modal.fieldInterval')}
               type="number"
               min="1"
-              disabled={form.repeat_reminder < 2}
+              disabled={form.recurrence === 'none'}
               value={form.time_between_reminders}
               onChange={(e) => setForm({ ...form, time_between_reminders: parseInt(e.target.value) || '' })}
             />
@@ -217,9 +220,9 @@ export default function TaskModal({ isOpen, onClose, taskToEdit, categories = []
 
         {mode === 'edit' && (
           <div className="px-5 py-4 border-t border-border flex justify-end gap-2 bg-surface-2">
-            <Button variant="ghost" onClick={onClose} disabled={submitting}>انصراف</Button>
+            <Button variant="ghost" onClick={onClose} disabled={submitting}>{t('modal.cancel')}</Button>
             <Button onClick={handleSubmit} disabled={submitting}>
-              {submitting ? 'در حال ذخیره...' : taskToEdit ? 'ذخیره تغییرات' : 'افزودن'}
+              {submitting ? t('modal.saving') : taskToEdit ? t('modal.saveChanges') : t('modal.add')}
             </Button>
           </div>
         )}

@@ -1,5 +1,6 @@
 import { useContext, useState, useRef, useEffect } from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import {
   LayoutDashboard, User, Bell, Menu, X, Check, Trash,
   ChevronLeft, LogOut, Settings, Info,
@@ -8,6 +9,7 @@ import { AuthContext } from '../context/authContext';
 import { useWebsocketNotifications } from '../hooks/useWebsocketNotifications';
 
 export default function MainLayout() {
+  const { t } = useTranslation();
   const { user, logout } = useContext(AuthContext);
   const location = useLocation();
   const [isMobileOpen, setIsMobileOpen] = useState(false);
@@ -31,11 +33,11 @@ export default function MainLayout() {
   }, []);
 
   const menu = [
-    { name: 'داشبورد', path: '/', icon: LayoutDashboard },
-    { name: 'تنظیمات', path: '/profile', icon: User },
+    { name: t('sidebar.dashboard'), path: '/', icon: LayoutDashboard },
+    { name: t('sidebar.settings'), path: '/profile', icon: User },
   ];
 
-  const currentTitle = menu.find((m) => m.path === location.pathname)?.name || 'یادآور';
+  const currentTitle = menu.find((m) => m.path === location.pathname)?.name || t('layout.defaultTitle');
 
   return (
     <div className="flex h-screen bg-background overflow-hidden">
@@ -50,18 +52,18 @@ export default function MainLayout() {
       >
         <div className={`h-16 flex items-center border-b border-border ${isCollapsed ? 'justify-center px-0' : 'justify-between px-4'}`}>
           {!isCollapsed && (
-            <span className="font-display font-semibold text-foreground">⏳ Task reminder</span>
+            <span className="font-display font-semibold text-foreground">{t('sidebar.brand')}</span>
           )}
           <div className="flex items-center">
             <button
-              aria-label="بستن منو"
+              aria-label={t('layout.closeMenu')}
               className="md:hidden p-2 rounded-md hover:bg-surface-2"
               onClick={() => setIsMobileOpen(false)}
             >
               <X className="w-5 h-5" />
             </button>
             <button
-              aria-label="جمع کردن سایدبار"
+              aria-label={t('layout.collapseSidebar')}
               className="hidden md:inline-flex p-2 rounded-md hover:bg-surface-2"
               onClick={() => setIsCollapsed((v) => !v)}
             >
@@ -107,10 +109,10 @@ export default function MainLayout() {
               text-foreground-soft hover:bg-surface-2 hover:text-foreground w-full transition-colors"
           >
             <Info className="w-5 h-5 flex-shrink-0" />
-            {!isCollapsed && <span>درباره ما</span>}
+            {!isCollapsed && <span>{t('sidebar.about')}</span>}
             {isCollapsed && (
               <span className="absolute end-full me-2 hidden group-hover:block bg-foreground text-background text-xs px-2 py-1 rounded shadow-md whitespace-nowrap z-50 animate-in fade-in zoom-in-95 duration-200">
-                درباره ما
+                {t('sidebar.about')}
               </span>
             )}
           </Link>
@@ -131,7 +133,7 @@ export default function MainLayout() {
         <header className="h-16 flex items-center justify-between px-4 md:px-6 bg-surface border-b border-border">
           <div className="flex items-center gap-3">
             <button
-              aria-label="باز کردن منو"
+              aria-label={t('layout.openMenu')}
               className="md:hidden p-2 rounded-md hover:bg-surface-2"
               onClick={() => setIsMobileOpen(true)}
             >
@@ -141,7 +143,7 @@ export default function MainLayout() {
               <h1 
                 onClick={() => window.location.reload()}
                 className="font-display font-semibold text-lg text-foreground cursor-pointer hover:text-primary transition-colors"
-                title="بارگذاری مجدد داشبورد"
+                title={t('layout.reloadDashboard')}
               >
                 {currentTitle}
               </h1>
@@ -154,7 +156,7 @@ export default function MainLayout() {
             {/* Notifications */}
             <div className="relative" ref={notifRef}>
               <button
-                aria-label="اعلانها"
+                aria-label={t('layout.notifications')}
                 className="relative p-2 rounded-md hover:bg-surface-2"
                 onClick={() => setIsNotifOpen((v) => !v)}
               >
@@ -166,16 +168,16 @@ export default function MainLayout() {
               {isNotifOpen && (
                 <div className="absolute end-0 mt-2 w-80 bg-surface rounded-[14px] border border-border shadow-lg z-50 overflow-hidden">
                   <div className="p-3 flex items-center justify-between border-b border-border">
-                    <span className="font-semibold text-sm">اعلانها</span>
+                    <span className="font-semibold text-sm">{t('layout.notifications')}</span>
                     {notifications?.length > 0 && (
                       <button className="text-xs text-primary transition-colors hover:text-primary-hover" onClick={markAllAsRead}>
-                        علامتگذاری همه
+                        {t('layout.markAllRead')}
                       </button>
                     )}
                   </div>
                   <div className="max-h-80 overflow-y-auto">
                     {!notifications || notifications.length === 0 ? (
-                      <div className="p-6 text-center text-sm text-muted">اعلانی نداری</div>
+                      <div className="p-6 text-center text-sm text-muted">{t('layout.noNotifications')}</div>
                     ) : (
                       notifications.map((n) => (
                         <div
@@ -189,14 +191,14 @@ export default function MainLayout() {
                             <button
                               onClick={() => markAsRead(n.id)}
                               className="p-1 text-muted hover:text-green-500 transition-colors"
-                              title="خوانده شد"
+                              title={t('layout.markAsRead')}
                             >
                               <Check className="w-4 h-4" />
                             </button>
                             <button
                               onClick={() => removeNotification(n.id)}
                               className="p-1 text-muted hover:text-red-500 transition-colors"
-                              title="حذف"
+                              title={t('layout.delete')}
                             >
                               <Trash className="w-4 h-4" />
                             </button>
@@ -214,7 +216,7 @@ export default function MainLayout() {
             {/* Profile */}
             <div className="relative" ref={profileRef}>
               <button
-                aria-label="پروفایل"
+                aria-label={t('layout.profile')}
                 className="flex items-center gap-2 h-10 px-2 rounded-[10px] hover:bg-surface-2"
                 onClick={() => setIsProfileOpen((v) => !v)}
               >
@@ -230,13 +232,13 @@ export default function MainLayout() {
                     <div className="text-xs text-muted">{user?.email}</div>
                   </div>
                   <Link to="/profile" className="flex items-center gap-2 px-3 py-2 text-sm hover:bg-surface-2">
-                    <Settings className="w-4 h-4" /> تنظیمات
+                    <Settings className="w-4 h-4" /> {t('sidebar.settings')}
                   </Link>
                   <button
                     onClick={logout}
                     className="flex items-center gap-2 w-full px-3 py-2 text-sm text-danger hover:bg-danger-soft"
                   >
-                    <LogOut className="w-4 h-4" /> خروج
+                    <LogOut className="w-4 h-4" /> {t('layout.logout')}
                   </button>
                 </div>
               )}

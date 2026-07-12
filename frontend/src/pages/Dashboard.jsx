@@ -1,5 +1,6 @@
 import { toast } from 'react-toastify';
 import { useState, useEffect, useMemo, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Plus, Bell, Clock, CheckCircle2, AlertCircle, Repeat, Undo2, Folder } from 'lucide-react';
 import axiosInstance from '../api/axiosInstance';
 import { categoryApi } from '../api/categoryApi';
@@ -12,10 +13,10 @@ import EmptyState from '../components/ui/EmptyState';
 import SkeletonRow from '../components/ui/SkeletonRow';
 
 const STATUS_TABS = [
-  { key: 'pending', label: 'در انتظار' },
-  { key: 'recurring', label: 'تکرارشونده' },
-  { key: 'done', label: 'انجام‌شده' },
-  { key: 'all', label: 'همه' },
+  { key: 'pending', labelKey: 'filters.pending' },
+  { key: 'recurring', labelKey: 'filters.recurring' },
+  { key: 'done', labelKey: 'filters.done' },
+  { key: 'all', labelKey: 'filters.all' },
 ];
 
 const TIME_FILTERS = [
@@ -26,6 +27,8 @@ const TIME_FILTERS = [
 ];
 
 export default function Dashboard() {
+  const { t, i18n } = useTranslation();
+  const currentLocale = i18n.language === 'fa' ? 'fa-IR' : 'en-US';
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeStatus, setActiveStatus] = useState('pending');
@@ -59,7 +62,7 @@ export default function Dashboard() {
     setLoading(true);
     axiosInstance.get('tasks/')
       .then((r) => setTasks(r.data))
-      .catch(() => toast.error('خطا در بارگذاری یادآورها'))
+      .catch(() => toast.error(t('dashboard.errorLoading')))
       .finally(() => setLoading(false));
   };
 
@@ -128,7 +131,7 @@ export default function Dashboard() {
         prev.map((t) => (t.id === task.id ? { ...t, is_done: !task.is_done } : t))
       );
     } catch {
-      toast.error('خطا در تغییر وضعیت یادآور');
+      toast.error(t('dashboard.errorToggle'));
     }
   };
 
@@ -141,7 +144,7 @@ export default function Dashboard() {
       try {
         await axiosInstance.delete(`tasks/${task.id}/`);
       } catch {
-        toast.error('خطا در حذف یادآور');
+        toast.error(t('dashboard.errorDelete'));
         fetchTasks(); // Restore sync if backend fails
       }
     }, 5000);
@@ -151,7 +154,7 @@ export default function Dashboard() {
     toast(
       ({ closeToast }) => (
         <div className="flex items-center justify-between w-full">
-          <span className="font-semibold text-white">یادآور حذف شد</span>
+          <span className="font-semibold text-white">{t('dashboard.taskDeleted')}</span>
           <button
             onClick={() => {
               clearTimeout(timer);
@@ -159,7 +162,7 @@ export default function Dashboard() {
               closeToast();
             }}
             className="p-1.5 rounded-md text-white hover:text-primary hover:bg-slate-700 transition-all duration-200"
-            aria-label="بازگردانی"
+            aria-label={t('dashboard.undo')}
           >
             <Undo2 className="w-5 h-5" />
           </button>
@@ -180,42 +183,42 @@ export default function Dashboard() {
       {showPushBanner && (
         <Card className="flex items-center gap-3 bg-primary-soft border-primary/20">
           <Bell className="w-5 h-5 text-primary" />
-          <div className="flex-1 text-sm">اعلانهای مرورگر را فعال کن تا یادآورها را از دست ندهی.</div>
-          <Button size="sm" onClick={subscribeToWebPush}>فعال کردن</Button>
+          <div className="flex-1 text-sm">{t('dashboard.enablePushText')}</div>
+          <Button size="sm" onClick={subscribeToWebPush}>{t('dashboard.enablePushBtn')}</Button>
         </Card>
       )}
 
       {/* Header */}
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
-          <h1 className="text-2xl font-display font-semibold text-foreground">یادآورها</h1>
+          <h1 className="text-2xl font-display font-semibold text-foreground">{t('dashboard.title')}</h1>
           <p className="text-sm text-foreground-soft mt-1">
-            {tasks.length} مورد در مجموع
+            {tasks.length} {t('dashboard.totalItems')}
           </p>
         </div>
         <Button onClick={() => openModal()}>
-          <Plus className="w-4 h-4" /> افزودن یادآور
+          <Plus className="w-4 h-4" /> {t('dashboard.addTask')}
         </Button>
       </div>
 
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-        <StatCard icon={Bell} label="در انتظار" value={stats.pending} tone="warning" />
-        <StatCard icon={AlertCircle} label="گذشته" value={stats.overdue} tone="danger" />
-        <StatCard icon={CheckCircle2} label="انجام‌شده" value={stats.done} tone="success" />
+        <StatCard icon={Bell} label={t('filters.pending')} value={stats.pending} tone="warning" />
+        <StatCard icon={AlertCircle} label={t('filters.overdue')} value={stats.overdue} tone="danger" />
+        <StatCard icon={CheckCircle2} label={t('filters.done')} value={stats.done} tone="success" />
       </div>
 
       {/* Filters */}
       <div className="space-y-3">
         <div className="flex gap-2 bg-surface-2 rounded-[10px] p-1 w-fit">
-          {STATUS_TABS.map((t) => (
+          {STATUS_TABS.map((tItem) => (
             <button
-              key={t.key}
-              onClick={() => setActiveStatus(t.key)}
+              key={tItem.key}
+              onClick={() => setActiveStatus(tItem.key)}
               className={`h-8 px-3 rounded-[8px] text-sm font-medium transition-colors
-                ${activeStatus === t.key ? 'bg-surface text-foreground shadow-sm' : 'text-foreground-soft hover:text-foreground'}`}
+                ${activeStatus === tItem.key ? 'bg-surface text-foreground shadow-sm' : 'text-foreground-soft hover:text-foreground'}`}
             >
-              {t.label}
+              {t(tItem.labelKey)}
             </button>
           ))}
         </div>
@@ -228,10 +231,10 @@ export default function Dashboard() {
               onChange={(e) => setActiveTimeFilter(e.target.value)}
               className="appearance-none bg-surface-2 border border-border rounded-[8px] h-9 ps-8 pe-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 w-full sm:w-auto cursor-pointer"
             >
-              <option value="today">امروز</option>
-              <option value="week">این هفته</option>
-              <option value="month">این ماه</option>
-              <option value="all">همه</option>
+              <option value="today">{t('filters.today')}</option>
+              <option value="week">{t('filters.week')}</option>
+              <option value="month">{t('filters.month')}</option>
+              <option value="all">{t('filters.all')}</option>
             </select>
           </div>
 
@@ -242,7 +245,7 @@ export default function Dashboard() {
               onChange={(e) => setActiveCategory(e.target.value)}
               className="appearance-none bg-surface-2 border border-border rounded-[8px] h-9 ps-8 pe-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 w-full sm:w-auto cursor-pointer"
             >
-              <option value="all">همه دسته‌ها</option>
+              <option value="all">{t('filters.allCategories')}</option>
               {categories.map((c) => (
                 <option key={c.id} value={c.id}>{c.name}</option>
               ))}
@@ -258,9 +261,9 @@ export default function Dashboard() {
         ) : filteredTasks.length === 0 ? (
           <EmptyState
             icon={Bell}
-            title="هیچ یادآوری نداری"
-            description="اولین یادآور خود را اضافه کن تا اینجا نمایش داده شود."
-            actionLabel="افزودن یادآور"
+            title={t('dashboard.emptyTitle')}
+            description={t('dashboard.emptyDesc')}
+            actionLabel={t('dashboard.addTask')}
             onAction={() => openModal()}
           />
         ) : (
@@ -319,6 +322,8 @@ function StatCard({ icon: Icon, label, value, tone }) {
 }
 
 function TaskCard({ task, overdue, onView, onEdit, onToggle, onDelete }) {
+  const { t, i18n } = useTranslation();
+  const currentLocale = i18n.language === 'fa' ? 'fa-IR' : 'en-US';
   const done = task.is_done;
   const isRecurring = task.recurrence && task.recurrence !== 'none';
   const isToday = task.first_reminder && new Date(task.first_reminder).toDateString() === new Date().toDateString();
@@ -326,11 +331,11 @@ function TaskCard({ task, overdue, onView, onEdit, onToggle, onDelete }) {
   return (
     <div
       onClick={onView}
-      className={`bg-surface rounded-[14px] border border-border border-r-4 shadow-sm p-4 flex items-start gap-4
+      className={`bg-surface rounded-[14px] border border-border border-s-4 shadow-sm p-4 flex items-start gap-4
         transition-all duration-300 hover:bg-surface-2 hover:shadow-md hover:-translate-y-[2px] cursor-pointer
         animate-in fade-in slide-in-from-bottom-2
         ${done ? 'opacity-60' : ''}`}
-      style={{ borderRightColor: task.category?.color || '#9ca3af' }}
+      style={{ borderInlineStartColor: task.category?.color || '#9ca3af' }}
     >
       <input
         type="checkbox"
@@ -338,7 +343,7 @@ function TaskCard({ task, overdue, onView, onEdit, onToggle, onDelete }) {
         onClick={(e) => e.stopPropagation()}
         onChange={onToggle}
         className="w-5 h-5 mt-0.5 rounded accent-primary flex-shrink-0 cursor-pointer"
-        aria-label="علامتگذاری انجام‌شده"
+        aria-label={t('task.markDone')}
       />
 
       <div className="flex-1 min-w-0">
@@ -349,9 +354,9 @@ function TaskCard({ task, overdue, onView, onEdit, onToggle, onDelete }) {
           {task.first_reminder && (
             <span className={`inline-flex items-center gap-1 ${overdue ? 'text-danger font-medium' : ''}`}>
               <Clock className="w-3 h-3" />
-              {isToday ? new Date(task.first_reminder).toLocaleTimeString('fa-IR', {
+              {isToday ? new Date(task.first_reminder).toLocaleTimeString(currentLocale, {
                 hour: '2-digit', minute: '2-digit'
-              }) : new Date(task.first_reminder).toLocaleString('fa-IR', {
+              }) : new Date(task.first_reminder).toLocaleString(currentLocale, {
                 year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
               })}
             </span>
@@ -359,8 +364,8 @@ function TaskCard({ task, overdue, onView, onEdit, onToggle, onDelete }) {
           {isRecurring && (
             <span className="inline-flex items-center gap-1 text-xs text-primary bg-primary-soft px-2 py-0.5 rounded-full">
               <Repeat className="w-3 h-3" /> 
-              {task.recurrence === 'daily' ? 'روزانه' : task.recurrence === 'weekly' ? 'هفتگی' : 'ماهانه'}
-              {' | '}تعداد: {task.repeat_reminder} {' | '}فاصله: {task.time_between_reminders} دقیقه
+              {task.recurrence === 'daily' ? t('task.daily') : task.recurrence === 'weekly' ? t('task.weekly') : t('task.monthly')}
+              {' | '}{t('task.countLabel')} {task.repeat_reminder} {' | '}{t('task.intervalLabel')} {task.time_between_reminders} {t('task.minutes')}
             </span>
           )}
         </div>
@@ -369,17 +374,17 @@ function TaskCard({ task, overdue, onView, onEdit, onToggle, onDelete }) {
       <div className="flex items-center gap-1 shrink-0">
         <button
           onClick={(e) => { e.stopPropagation(); onEdit(); }}
-          aria-label="ویرایش"
+          aria-label={t('task.edit')}
           className="p-2 rounded-md hover:bg-surface text-foreground-soft hover:text-primary transition-colors border border-transparent hover:border-border"
-          title="ویرایش"
+          title={t('task.edit')}
         >
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
         </button>
         <button
           onClick={(e) => { e.stopPropagation(); onDelete(); }}
-          aria-label="حذف"
+          aria-label={t('task.delete')}
           className="p-2 rounded-md hover:bg-danger-soft text-foreground-soft hover:text-danger transition-colors border border-transparent hover:border-danger/20"
-          title="حذف"
+          title={t('task.delete')}
         >
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
         </button>

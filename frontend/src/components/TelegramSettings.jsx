@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { toast } from 'react-toastify';
+import { useTranslation } from 'react-i18next';
 import { getTelegramLinkToken, deleteTelegramConnection } from '../api/telegramApi';
 
 export default function TelegramSettings() {
+  const { t } = useTranslation();
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(true);
   const [isConnected, setIsConnected] = useState(false);
@@ -28,12 +30,12 @@ export default function TelegramSettings() {
       if (data && data.link_token && data.bot_username) {
         const url = `https://t.me/${data.bot_username}?start=${data.link_token}`;
         window.open(url, '_blank');
-        toast.info('پس از شروع ربات، وضعیت اتصال با رفرش صفحه بروز خواهد شد.');
+        toast.info(t('telegramSettings.successStart'));
       } else {
-        toast.error('اطلاعات دریافتی از سرور نامعتبر است.');
+        toast.error(t('telegramSettings.errorInvalid'));
       }
     } catch (error) {
-      toast.error('مشکلی در برقراری ارتباط با سرور تلگرام پیش آمد.');
+      toast.error(t('telegramSettings.errorNetwork'));
     } finally {
       setLoading(false);
     }
@@ -44,9 +46,9 @@ export default function TelegramSettings() {
     try {
       await deleteTelegramConnection();
       setIsConnected(false);
-      toast.success('اتصال تلگرام با موفقیت لغو شد.');
+      toast.success(t('telegramSettings.successDisconnect'));
     } catch (error) {
-      toast.error('خطا در لغو اتصال تلگرام.');
+      toast.error(t('telegramSettings.errorDisconnect'));
     } finally {
       setLoading(false);
     }
@@ -62,13 +64,13 @@ export default function TelegramSettings() {
 
   return (
     <div className="bg-white p-6 sm:p-8 rounded-2xl shadow-sm border border-gray-100 relative overflow-hidden group">
-      <div className={`absolute top-0 right-0 w-1.5 h-full transition-colors duration-500 ${isConnected ? 'bg-green-500' : 'bg-[#0088cc]'}`}></div>
+      <div className={`absolute top-0 end-0 w-1.5 h-full transition-colors duration-500 ${isConnected ? 'bg-green-500' : 'bg-[#0088cc]'}`}></div>
       <h3 className="text-lg font-bold text-gray-800 mb-6 flex items-center gap-2">
-        <span className="text-xl">🔗</span> حساب‌های متصل
+        <span className="text-xl">🔗</span> {t('telegramSettings.title')}
       </h3>
       
       <div className="flex flex-col sm:flex-row items-center justify-between gap-6 transition-all">
-        <div className="flex flex-col sm:flex-row items-center gap-4 text-center sm:text-right w-full">
+        <div className="flex flex-col sm:flex-row items-center gap-4 text-center sm:text-end w-full">
           {/* Status Icon */}
           <div className={`w-14 h-14 rounded-full flex items-center justify-center shrink-0 shadow-inner transition-all duration-300 group-hover:scale-105 ${isConnected ? 'bg-green-50 text-green-500' : 'bg-blue-50 text-[#0088cc]'}`}>
             {isConnected ? (
@@ -83,12 +85,12 @@ export default function TelegramSettings() {
           </div>
           <div>
             <h4 className="text-lg font-bold text-gray-800">
-                {isConnected ? 'تلگرام متصل است ✅' : 'ربات تلگرام'}
+                {isConnected ? t('telegramSettings.connectedTitle') : t('telegramSettings.botTitle')}
             </h4>
             <p className="text-sm text-gray-500 mt-1 leading-relaxed">
                 {isConnected 
-                  ? 'شما در حال حاضر یادآورها را مستقیماً در تلگرام دریافت می‌کنید. ارتباط با سرور برقرار است.' 
-                  : 'با اتصال حساب خود، یادآورها را مستقیماً در تلگرام دریافت کنید.'}
+                  ? t('telegramSettings.connectedDesc') 
+                  : t('telegramSettings.notConnectedDesc')}
             </p>
           </div>
         </div>
@@ -109,7 +111,7 @@ export default function TelegramSettings() {
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                     </svg>
                 )}
-                {loading ? 'در حال لغو اتصال...' : 'لغو اتصال تلگرام'}
+                {loading ? t('telegramSettings.disconnectingBtn') : t('telegramSettings.disconnectBtn')}
             </button>
         ) : (
             <button
@@ -127,7 +129,7 @@ export default function TelegramSettings() {
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                     </svg>
                 )}
-                {loading ? 'در حال ارتباط...' : 'اتصال به تلگرام'}
+                {loading ? t('telegramSettings.connectingBtn') : t('telegramSettings.connectBtn')}
             </button>
         )}
       </div>
