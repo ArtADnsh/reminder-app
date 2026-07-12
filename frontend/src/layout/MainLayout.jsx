@@ -1,285 +1,255 @@
 import { useContext, useState, useRef, useEffect } from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
+import {
+  LayoutDashboard, User, Bell, Menu, X, Check, Trash,
+  ChevronLeft, LogOut, Settings, Info,
+} from 'lucide-react';
 import { AuthContext } from '../context/authContext';
 import { useWebsocketNotifications } from '../hooks/useWebsocketNotifications';
 
 export default function MainLayout() {
   const { user, logout } = useContext(AuthContext);
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [isDesktopMenuOpen, setIsDesktopMenuOpen] = useState(true);
-  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-  const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
-  const dropdownRef = useRef(null);
-  const profileDropdownRef = useRef(null);
   const location = useLocation();
+  const [isMobileOpen, setIsMobileOpen] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isNotifOpen, setIsNotifOpen] = useState(false);
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const notifRef = useRef(null);
+  const profileRef = useRef(null);
 
   const token = localStorage.getItem('access_token');
-  const { notifications, unreadCount, markAsRead, removeNotification, markAllAsRead } = useWebsocketNotifications(token);
+  const { notifications, unreadCount, markAsRead, removeNotification, markAllAsRead } =
+    useWebsocketNotifications(token);
 
-  // Close dropdowns when clicking outside
   useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
-        setIsDropdownOpen(false);
-      }
-      if (profileDropdownRef.current && !profileDropdownRef.current.contains(event.target)) {
-        setIsProfileDropdownOpen(false);
-      }
+    const onClick = (e) => {
+      if (notifRef.current && !notifRef.current.contains(e.target)) setIsNotifOpen(false);
+      if (profileRef.current && !profileRef.current.contains(e.target)) setIsProfileOpen(false);
     };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    document.addEventListener('mousedown', onClick);
+    return () => document.removeEventListener('mousedown', onClick);
   }, []);
 
-  const menuItems = [
-    { name: 'داشبورد', path: '/', icon: '📊' },
-    { name: 'پروفایل من', path: '/profile', icon: '👤' },
-    // در آینده مسیرهای جدید را اینجا اضافه می‌کنیم
+  const menu = [
+    { name: 'داشبورد', path: '/', icon: LayoutDashboard },
+    { name: 'تنظیمات', path: '/profile', icon: User },
   ];
 
-  return (
-    <div className="flex h-screen bg-gray-50 overflow-hidden font-sans">
-      <style>{`
-        @keyframes dropdownFadeSlide {
-          from { opacity: 0; transform: translateY(-10px) scale(0.95); }
-          to { opacity: 1; transform: translateY(0) scale(1); }
-        }
-      `}</style>
+  const currentTitle = menu.find((m) => m.path === location.pathname)?.name || 'یادآور';
 
-      {/* ---------------- سایدبار (دسکتاپ و موبایل) ---------------- */}
+  return (
+    <div className="flex h-screen bg-background overflow-hidden">
+      {/* Sidebar */}
       <aside
-        className={`${isMobileMenuOpen ? 'translate-x-0' : 'translate-x-full'} 
-        md:translate-x-0 fixed md:static inset-y-0 right-0 z-50 ${isDesktopMenuOpen ? 'md:w-64' : 'md:w-0'} w-64 bg-secondary text-white transition-all duration-300 ease-in-out shadow-2xl flex flex-col overflow-hidden whitespace-nowrap`}
+        className={`
+          fixed md:static inset-y-0 right-0 z-50 bg-surface border-l border-border
+          flex flex-col transition-transform duration-300 md:transition-all
+          ${isMobileOpen ? 'translate-x-0' : 'translate-x-full'} md:translate-x-0
+          ${isCollapsed ? 'md:w-16' : 'md:w-64'} w-64
+        `}
       >
-        <div className="flex items-center justify-between px-4 h-20 border-b border-gray-700">
-          <h1 className="text-xl font-bold flex items-center gap-2">
-            <span>⏳</span> سیستم یادآور
-          </h1>
-          <button
-            onClick={() => {
-              if (window.innerWidth >= 768) {
-                setIsDesktopMenuOpen(false);
-              } else {
-                setIsMobileMenuOpen(false);
-              }
-            }}
-            className="text-gray-400 hover:text-white transition-colors focus:outline-none p-1 rounded-full hover:bg-gray-800"
-            title="بستن منو"
-          >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7"></path>
-            </svg>
-          </button>
+        <div className={`h-16 flex items-center border-b border-border ${isCollapsed ? 'justify-center px-0' : 'justify-between px-4'}`}>
+          {!isCollapsed && (
+            <span className="font-display font-semibold text-foreground">⏳ یادآور</span>
+          )}
+          <div className="flex items-center">
+            <button
+              aria-label="بستن منو"
+              className="md:hidden p-2 rounded-md hover:bg-surface-2"
+              onClick={() => setIsMobileOpen(false)}
+            >
+              <X className="w-5 h-5" />
+            </button>
+            <button
+              aria-label="جمع کردن سایدبار"
+              className="hidden md:inline-flex p-2 rounded-md hover:bg-surface-2"
+              onClick={() => setIsCollapsed((v) => !v)}
+            >
+              <ChevronLeft className={`w-5 h-5 transition-transform ${isCollapsed ? 'rotate-180' : ''}`} />
+            </button>
+          </div>
         </div>
 
-        <nav className="flex-1 px-4 py-6 space-y-2">
-          {menuItems.map((item) => (
-            <Link
-              key={item.path}
-              to={item.path}
-              onClick={() => setIsMobileMenuOpen(false)}
-              className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
-                location.pathname === item.path 
-                  ? 'bg-primary text-white shadow-md' 
-                  : 'text-gray-300 hover:bg-gray-800 hover:text-white'
-              }`}
-            >
-              <span className="text-lg">{item.icon}</span>
-              <span className="font-medium">{item.name}</span>
-            </Link>
-          ))}
+        <nav className="flex-1 py-3 px-2 space-y-1">
+          {menu.map((item) => {
+            const Icon = item.icon;
+            const active = location.pathname === item.path;
+            return (
+              <Link
+                key={item.path}
+                to={item.path}
+                onClick={() => setIsMobileOpen(false)}
+                className={`
+                  relative group flex items-center gap-3 h-10 px-3 rounded-[10px] text-sm font-medium
+                  transition-colors duration-150
+                  ${active
+                    ? 'bg-primary-soft text-primary'
+                    : 'text-foreground-soft hover:bg-surface-2 hover:text-foreground'}
+                `}
+              >
+                <Icon className="w-5 h-5 flex-shrink-0" />
+                {!isCollapsed && <span>{item.name}</span>}
+                {isCollapsed && (
+                  <span className="absolute end-full me-2 hidden group-hover:block bg-foreground text-background text-xs px-2 py-1 rounded shadow-md whitespace-nowrap z-50 animate-in fade-in zoom-in-95 duration-200">
+                    {item.name}
+                  </span>
+                )}
+              </Link>
+            );
+          })}
         </nav>
 
-        {/* About App Button */}
-        <div className="p-4 border-t border-gray-700">
+        <div className="p-2 border-t border-border">
           <Link
             to="/about"
-            onClick={() => setIsMobileMenuOpen(false)}
-            className={`flex items-center gap-3 px-4 py-3 w-full rounded-lg transition-colors group ${
-              location.pathname === '/about' 
-                ? 'bg-primary text-white shadow-md' 
-                : 'text-gray-300 hover:bg-gray-800 hover:text-white'
-            }`}
+            onClick={() => setIsMobileOpen(false)}
+            className="relative group flex items-center gap-3 h-10 px-3 rounded-[10px] text-sm font-medium
+              text-foreground-soft hover:bg-surface-2 hover:text-foreground w-full transition-colors"
           >
-            <span className="text-lg">ℹ️</span>
-            <span className="font-medium">درباره برنامه</span>
+            <Info className="w-5 h-5 flex-shrink-0" />
+            {!isCollapsed && <span>درباره ما</span>}
+            {isCollapsed && (
+              <span className="absolute end-full me-2 hidden group-hover:block bg-foreground text-background text-xs px-2 py-1 rounded shadow-md whitespace-nowrap z-50 animate-in fade-in zoom-in-95 duration-200">
+                درباره ما
+              </span>
+            )}
           </Link>
         </div>
       </aside>
 
-      {/* ---------------- بخش اصلی (هدر + محتوا) ---------------- */}
-      <div className="flex-1 flex flex-col w-full">
+      {/* Mobile backdrop */}
+      {isMobileOpen && (
+        <div
+          className="md:hidden fixed inset-0 bg-black/30 backdrop-blur-sm z-40"
+          onClick={() => setIsMobileOpen(false)}
+        />
+      )}
 
-        {/* هدر بالایی */}
-        <header className={`relative h-20 bg-white shadow-sm flex items-center justify-between px-6 ${isDropdownOpen ? 'z-[60]' : 'z-10'}`}>
-          {/* سمت راست هدر: دکمه همبرگری (فقط برای باز کردن) و عنوان */}
-          <div className="flex items-center gap-4">
+      {/* Main */}
+      <div className="flex-1 flex flex-col min-w-0">
+        {/* Topbar */}
+        <header className="h-16 flex items-center justify-between px-4 md:px-6 bg-surface border-b border-border">
+          <div className="flex items-center gap-3">
             <button
-              className={`text-gray-600 focus:outline-none transition-all ${isMobileMenuOpen ? 'hidden' : 'block'} ${isDesktopMenuOpen ? 'md:hidden' : 'md:block'}`}
-              onClick={() => {
-                if (window.innerWidth >= 768) {
-                  setIsDesktopMenuOpen(true);
-                } else {
-                  setIsMobileMenuOpen(true);
-                }
-              }}
-              title="باز کردن منو"
+              aria-label="باز کردن منو"
+              className="md:hidden p-2 rounded-md hover:bg-surface-2"
+              onClick={() => setIsMobileOpen(true)}
             >
-              <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16"></path>
-              </svg>
+              <Menu className="w-5 h-5" />
             </button>
-  
-            <div className="hidden md:block">
-              <Link 
-                to="/"
-                onClick={(e) => {
-                  if (location.pathname === '/') {
-                    e.preventDefault();
-                    window.location.href = '/';
-                  }
-                }}
-                className="text-xl font-bold text-gray-800 hover:text-primary transition-colors cursor-pointer block"
+            {location.pathname === '/' ? (
+              <h1 
+                onClick={() => window.location.reload()}
+                className="font-display font-semibold text-lg text-foreground cursor-pointer hover:text-primary transition-colors"
+                title="بارگذاری مجدد داشبورد"
               >
-                پنل مدیریت
-              </Link>
-            </div>
+                {currentTitle}
+              </h1>
+            ) : (
+              <h1 className="font-display font-semibold text-lg text-foreground">{currentTitle}</h1>
+            )}
           </div>
 
-          <div className="flex items-center gap-4 sm:gap-6">
-            
-            {/* Notification Bell Container */}
-            <div className="relative" ref={dropdownRef}>
-              <button 
-                onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                className={`relative p-2 rounded-full transition-colors focus:outline-none cursor-pointer ${isDropdownOpen ? 'bg-primary/10 text-primary' : 'text-gray-500 hover:text-primary hover:bg-gray-100'}`}
-                title="اعلانات"
+          <div className="flex items-center gap-2">
+            {/* Notifications */}
+            <div className="relative" ref={notifRef}>
+              <button
+                aria-label="اعلانها"
+                className="relative p-2 rounded-md hover:bg-surface-2"
+                onClick={() => setIsNotifOpen((v) => !v)}
               >
-                <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-                </svg>
+                <Bell className="w-5 h-5 text-foreground-soft" />
                 {unreadCount > 0 && (
-                  <span className="absolute top-0 right-0 inline-flex items-center justify-center px-1.5 py-0.5 text-[10px] font-bold leading-none text-white transform translate-x-1/4 -translate-y-1/4 bg-accent rounded-full animate-bounce shadow-md">
-                    {unreadCount > 9 ? '9+' : unreadCount}
-                  </span>
+                  <span className="absolute top-1 start-1 w-2 h-2 rounded-full bg-danger" />
                 )}
               </button>
-
-              {/* Dropdown Menu */}
-              {isDropdownOpen && (
-                <div 
-                  className="fixed top-[75px] left-4 right-4 w-auto sm:absolute sm:top-full sm:mt-3 sm:left-0 sm:right-auto sm:w-96 bg-white rounded-2xl shadow-2xl border border-gray-100 z-50 overflow-hidden flex flex-col transform sm:origin-top-left"
-                  style={{ animation: 'dropdownFadeSlide 0.2s ease-out forwards' }}
-                >
-                  <div className="px-5 py-4 border-b border-gray-100 bg-gray-50/80 flex justify-between items-center">
-                    <h3 className="font-extrabold text-gray-800 text-base">اعلانات</h3>
-                    {unreadCount > 0 && (
-                      <span className="text-xs font-bold bg-primary text-white px-2.5 py-1 rounded-full shadow-sm">{unreadCount} جدید</span>
+              {isNotifOpen && (
+                <div className="absolute end-0 mt-2 w-80 bg-surface rounded-[14px] border border-border shadow-lg z-50 overflow-hidden">
+                  <div className="p-3 flex items-center justify-between border-b border-border">
+                    <span className="font-semibold text-sm">اعلانها</span>
+                    {notifications?.length > 0 && (
+                      <button className="text-xs text-primary transition-colors hover:text-primary-hover" onClick={markAllAsRead}>
+                        علامتگذاری همه
+                      </button>
                     )}
                   </div>
-                  
-                  <div className="max-h-[350px] overflow-y-auto">
-                    {notifications.length === 0 ? (
-                      <div className="flex flex-col items-center justify-center py-10 text-gray-400">
-                        <span className="text-4xl mb-2 opacity-50">📭</span>
-                        <p className="text-sm font-medium">هیچ اعلانی وجود ندارد.</p>
-                      </div>
+                  <div className="max-h-80 overflow-y-auto">
+                    {!notifications || notifications.length === 0 ? (
+                      <div className="p-6 text-center text-sm text-muted">اعلانی نداری</div>
                     ) : (
-                      notifications.map(notif => (
-                        <div key={notif.id} className={`p-5 border-b border-gray-50 transition-colors ${notif.isRead ? 'bg-white opacity-70' : 'bg-blue-50/40'}`}>
-                          <h4 className={`text-sm font-bold mb-3 ${notif.isRead ? 'text-gray-700' : 'text-gray-900'}`}>{notif.title}</h4>
-                          <div className="flex gap-2 justify-end">
-                            {!notif.isRead && (
-                              <button onClick={() => markAsRead(notif.id)} className="text-xs px-3 py-1.5 bg-primary/10 text-primary hover:bg-primary hover:text-white rounded-lg font-bold transition-all">
-                                ✓ خوانده شد
-                              </button>
-                            )}
-                            <button onClick={() => removeNotification(notif.id)} className="text-xs px-3 py-1.5 bg-red-50 text-red-500 hover:bg-red-500 hover:text-white rounded-lg font-bold transition-all">
-                                ✕ حذف
+                      notifications.map((n) => (
+                        <div
+                          key={n.id}
+                          className="p-3 border-b border-border last:border-0 hover:bg-surface-2 flex items-start justify-between gap-2"
+                        >
+                          <div className={`text-sm ${n.isRead ? 'text-muted' : 'text-foreground font-medium'}`}>
+                            {n.title}
+                          </div>
+                          <div className="flex items-center gap-1 shrink-0">
+                            <button
+                              onClick={() => markAsRead(n.id)}
+                              className="p-1 text-muted hover:text-green-500 transition-colors"
+                              title="خوانده شد"
+                            >
+                              <Check className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => removeNotification(n.id)}
+                              className="p-1 text-muted hover:text-red-500 transition-colors"
+                              title="حذف"
+                            >
+                              <Trash className="w-4 h-4" />
                             </button>
                           </div>
                         </div>
                       ))
                     )}
                   </div>
-                  
-                  {notifications.length > 0 && (
-                    <button 
-                      onClick={() => { markAllAsRead(); setIsDropdownOpen(false); }}
-                      className="w-full py-3.5 text-sm font-bold text-primary hover:bg-blue-50 transition-colors border-t border-gray-100 text-center bg-gray-50/50"
-                    >
-                      خواندن همه اعلانات
-                    </button>
-                  )}
                 </div>
               )}
             </div>
 
-            <div className="hidden sm:block border-l border-gray-200 h-8"></div>
+            <div className="w-px h-6 bg-border mx-2"></div>
 
-            <div className="relative" ref={profileDropdownRef}>
-              <div 
-                onClick={() => setIsProfileDropdownOpen(!isProfileDropdownOpen)}
-                className="flex items-center gap-3 cursor-pointer group hover:bg-gray-50 p-1.5 rounded-xl transition-colors"
+            {/* Profile */}
+            <div className="relative" ref={profileRef}>
+              <button
+                aria-label="پروفایل"
+                className="flex items-center gap-2 h-10 px-2 rounded-[10px] hover:bg-surface-2"
+                onClick={() => setIsProfileOpen((v) => !v)}
               >
-                <div className="text-left hidden sm:block">
-                  <p className="text-sm font-bold text-gray-800 group-hover:text-primary transition-colors">{user?.username}</p>
-                  <p className="text-xs text-gray-500">کاربر سیستم</p>
+                <span className="text-sm font-medium text-foreground hidden sm:block">{user?.username}</span>
+                <div className="w-8 h-8 rounded-full bg-primary text-white flex items-center justify-center text-sm font-semibold">
+                  {user?.username?.[0]?.toUpperCase() || 'U'}
                 </div>
-                <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center text-white font-bold text-lg shadow-md group-hover:bg-blue-600 group-hover:scale-105 transition-all">
-                  {user?.username?.charAt(0).toUpperCase()}
-                </div>
-              </div>
-
-              {isProfileDropdownOpen && (
-                <div 
-                  className="absolute left-0 mt-2 w-56 bg-white rounded-2xl shadow-2xl border border-gray-100 z-50 overflow-hidden flex flex-col transform origin-top-left"
-                  style={{ animation: 'dropdownFadeSlide 0.2s ease-out forwards' }}
-                >
-                  <div className="px-4 py-3 border-b border-gray-100 bg-gray-50/50">
-                    <p className="text-sm font-bold text-gray-800 truncate">{user?.username}</p>
-                    <p className="text-xs text-gray-500 truncate mt-0.5 text-left" dir="ltr">{user?.email || 'ایمیل ثبت نشده'}</p>
+              </button>
+              {isProfileOpen && (
+                <div className="absolute end-0 mt-2 w-56 bg-surface rounded-[14px] border border-border shadow-lg z-50 overflow-hidden">
+                  <div className="p-3 border-b border-border">
+                    <div className="text-sm font-semibold">{user?.username}</div>
+                    <div className="text-xs text-muted">{user?.email}</div>
                   </div>
-                  
-                  <div className="p-2 flex flex-col gap-1">
-                    <Link
-                      to="/profile"
-                      onClick={() => setIsProfileDropdownOpen(false)}
-                      className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 hover:text-primary rounded-xl transition-colors"
-                    >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
-                      </svg>
-                      پروفایل من
-                    </Link>
-                    <button
-                      onClick={logout}
-                      className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50 rounded-xl transition-colors w-full text-right"
-                    >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path>
-                      </svg>
-                      خروج از حساب
-                    </button>
-                  </div>
+                  <Link to="/profile" className="flex items-center gap-2 px-3 py-2 text-sm hover:bg-surface-2">
+                    <Settings className="w-4 h-4" /> تنظیمات
+                  </Link>
+                  <button
+                    onClick={logout}
+                    className="flex items-center gap-2 w-full px-3 py-2 text-sm text-danger hover:bg-danger-soft"
+                  >
+                    <LogOut className="w-4 h-4" /> خروج
+                  </button>
                 </div>
               )}
             </div>
           </div>
         </header>
 
-        {/* محتوای متغیر صفحات (Outlet) */}
-        <main className="flex-1 overflow-y-auto p-6 md:p-8">
-          <Outlet />
+        <main className="flex-1 overflow-y-auto">
+          <div className="max-w-6xl mx-auto px-4 md:px-6 py-6">
+            <Outlet />
+          </div>
         </main>
       </div>
-
-      {/* پس‌زمینه تاریک برای موبایل در زمان باز بودن سایدبار */}
-      {isMobileMenuOpen && (
-        <div
-          className="fixed inset-0 bg-black/40 backdrop-blur-sm z-40 md:hidden transition-all duration-300 animate-in fade-in"
-          onClick={() => setIsMobileMenuOpen(false)}
-        ></div>
-      )}
     </div>
   );
 }

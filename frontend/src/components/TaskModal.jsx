@@ -1,220 +1,228 @@
 import { useState, useEffect } from 'react';
-import { categoryApi } from '../api/categoryApi';
+import { X } from 'lucide-react';
+import { toast } from 'react-toastify';
+import axiosInstance from '../api/axiosInstance';
+import Button from './ui/Button';
+import Input from './ui/Input';
 
-const initialFormState = {
-  title: '',
-  description: '',
-  first_reminder: '',
-  repeat_reminder: 1,
-  time_between_reminders: 0,
-  category: '',
-  recurrence: 'none',
-};
-
-export default function TaskModal({ isOpen, onClose, onSubmit, isSubmitting, taskToEdit }) {
-  const [formData, setFormData] = useState(initialFormState);
-  const [categories, setCategories] = useState([]);
+export default function TaskModal({ isOpen, onClose, taskToEdit, categories = [], onSaved, initialMode = 'edit' }) {
+  const [mode, setMode] = useState(initialMode);
+  const [form, setForm] = useState({
+    title: '', description: '', first_reminder: '', category: '', 
+    recurrence: 'none', repeat_reminder: 1, time_between_reminders: ''
+  });
+  const [errors, setErrors] = useState({});
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    if (isOpen) {
-      categoryApi.fetchCategories().then(setCategories).catch(console.error);
-      if (taskToEdit) {
-        const formatForInput = (isoString) => {
-          if (!isoString) return '';
-          const d = new Date(isoString);
-          return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
-        };
-        setFormData({
-          title: taskToEdit.title || '',
-          description: taskToEdit.description || '',
-          first_reminder: formatForInput(taskToEdit.first_reminder),
-          repeat_reminder: taskToEdit.repeat_reminder || 1,
-          time_between_reminders: taskToEdit.time_between_reminders || 0,
-          category: taskToEdit.category?.id || taskToEdit.category || '',
-          recurrence: taskToEdit.recurrence || 'none',
-        });
-      } else {
-        setFormData(initialFormState);
-      }
+    if (taskToEdit) {
+      setForm({
+        title: taskToEdit.title || '',
+        description: taskToEdit.description || '',
+        first_reminder: taskToEdit.first_reminder?.slice(0, 16) || '',
+        category: taskToEdit.category?.id || '',
+        recurrence: taskToEdit.recurrence || 'none',
+        repeat_reminder: taskToEdit.repeat_reminder || 1,
+        time_between_reminders: taskToEdit.time_between_reminders || '',
+      });
     }
-  }, [isOpen, taskToEdit]);
+  }, [taskToEdit]);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    const errs = {};
+    if (!form.title.trim()) errs.title = 'عنوان الزامی است';
+    if (Object.keys(errs).length) return setErrors(errs);
+    const payload = {
+      title: form.title,
+      description: form.description,
+      first_reminder: form.first_reminder || null,
+      category: form.category || null,
+      recurrence: form.recurrence,
+      repeat_reminder: form.repeat_reminder || 1,
+      time_between_reminders: form.time_between_reminders || null,
+    };
+
+    setSubmitting(true);
+    try {
+      if (taskToEdit) {
+        await axiosInstance.patch(`tasks/${taskToEdit.id}/`, payload);
+        toast.success('یادآور به‌روزرسانی شد');
+      } else {
+        await axiosInstance.post('tasks/', payload);
+        toast.success('یادآور اضافه شد');
+      }
+      onSaved?.();
+    } catch {
+      toast.error('خطا در ذخیرهسازی');
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   if (!isOpen) return null;
 
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({
-      ...prev,
-      [name]: name === 'repeat_reminder' || name === 'time_between_reminders'
-        ? parseInt(value) || 0
-        : value,
-    }));
-  };
-
-  const handleClose = () => {
-    setFormData(initialFormState);
-    onClose();
-  };
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    onSubmit(formData);
-  };
-
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm transition-opacity">
-      <div
-        className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden animate-in fade-in zoom-in duration-200"
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm" onClick={onClose}>
+      <div 
+        className="bg-surface rounded-[20px] shadow-lg w-full max-w-lg overflow-hidden animate-in fade-in zoom-in-95 duration-200"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
-          <h3 className="text-lg font-bold text-gray-800">{taskToEdit ? '✏️ ویرایش یادآور' : '➕ ثبت یادآور جدید'}</h3>
-          <button
-            onClick={handleClose}
-            className="text-gray-400 hover:text-red-500 transition-colors focus:outline-none"
-          >
-            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
+        <div className="flex items-center justify-between px-5 h-14 border-b border-border">
+          <h2 className="font-display font-semibold text-lg">
+            {mode === 'view' ? 'جزئیات یادآور' : taskToEdit ? 'ویرایش یادآور' : 'یادآور جدید'}
+          </h2>
+          <button onClick={onClose} aria-label="بستن" className="p-2 rounded-md hover:bg-surface-2">
+            <X className="w-5 h-5" />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-5">
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-1">عنوان یادآور *</label>
-            <input
-              type="text"
-              name="title"
-              required
-              placeholder="مثال: جلسه دیلی با تیم..."
-              value={formData.title}
-              onChange={handleChange}
-              className="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all"
+        {mode === 'view' ? (
+          <div className="p-6 space-y-6">
+            <div>
+              <h3 className="text-xl font-bold text-foreground">{form.title}</h3>
+              {form.description && (
+                <p className="mt-3 text-base text-foreground-soft whitespace-pre-wrap leading-relaxed">
+                  {form.description}
+                </p>
+              )}
+            </div>
+            
+            <div className="grid grid-cols-2 gap-4 pt-4 border-t border-border">
+              <div>
+                <div className="text-xs text-muted mb-1">زمان یادآوری</div>
+                <div className="font-medium text-sm">
+                  {form.first_reminder ? new Date(form.first_reminder).toLocaleString('fa-IR', {
+                    year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit'
+                  }) : '—'}
+                </div>
+              </div>
+              
+              <div>
+                <div className="text-xs text-muted mb-1">دسته‌بندی</div>
+                <div className="font-medium text-sm">
+                  {categories.find(c => c.id == form.category)?.name || 'بدون دسته'}
+                </div>
+              </div>
+
+              {form.recurrence !== 'none' && (
+                <>
+                  <div>
+                    <div className="text-xs text-muted mb-1">تکرار</div>
+                    <div className="font-medium text-sm text-primary">
+                      {form.recurrence === 'daily' ? 'روزانه' : form.recurrence === 'weekly' ? 'هفتگی' : 'ماهانه'}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-muted mb-1">تنظیمات تکرار</div>
+                    <div className="font-medium text-sm">
+                      تعداد: {form.repeat_reminder} بار (فاصله: {form.time_between_reminders} دقیقه)
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+
+            <div className="pt-2 flex justify-end">
+              <Button onClick={() => setMode('edit')}>ویرایش یادآور</Button>
+            </div>
+          </div>
+        ) : (
+          <form onSubmit={handleSubmit} className="p-5 space-y-4">
+          <Input
+            label="عنوان"
+            value={form.title}
+            onChange={(e) => setForm({ ...form, title: e.target.value })}
+            error={errors.title}
+            placeholder="مثلاً: خرید نان"
+          />
+
+          <div className="flex flex-col gap-1.5">
+            <label className="text-sm font-medium">توضیحات</label>
+            <textarea
+              rows={3}
+              value={form.description}
+              onChange={(e) => setForm({ ...form, description: e.target.value })}
+              className="px-3 py-2 rounded-[10px] border border-border bg-surface text-foreground
+                placeholder:text-muted resize-none focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+              placeholder="جزئیات..."
             />
           </div>
 
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-1">دسته‌بندی</label>
-            <div className="relative">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Input
+              label="تاریخ و ساعت"
+              type="datetime-local"
+              value={form.first_reminder}
+              onChange={(e) => setForm({ ...form, first_reminder: e.target.value })}
+            />
+            <div className="flex flex-col gap-1.5">
+              <label className="text-sm font-medium">دسته</label>
               <select
-                name="category"
-                value={formData.category}
-                onChange={handleChange}
-                className="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all appearance-none"
+                value={form.category}
+                onChange={(e) => setForm({ ...form, category: e.target.value })}
+                className="h-10 px-3 rounded-[10px] border border-border bg-surface focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
               >
-                <option value="">بدون دسته (عمومی)</option>
-                {categories.map(cat => (
-                  <option key={cat.id} value={cat.id}>{cat.name}</option>
+                <option value="">—</option>
+                {categories.map((c) => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
                 ))}
               </select>
-              <div className="absolute inset-y-0 left-0 flex items-center px-3 pointer-events-none text-gray-400">
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
-              </div>
             </div>
           </div>
 
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-1">توضیحات (اختیاری)</label>
-            <textarea
-              name="description"
-              rows="2"
-              placeholder="جزئیات بیشتر یادآور..."
-              value={formData.description}
-              onChange={handleChange}
-              className="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all resize-none"
-            ></textarea>
-          </div>
-
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-2">تکرار دوره‌ای (Recurrence)</label>
-            <div className="flex flex-wrap gap-2">
+          <div className="flex flex-col gap-1.5">
+            <label className="text-sm font-medium">تکرار دوره‌ای</label>
+            <div className="flex gap-2">
               {[
                 { id: 'none', label: 'بدون تکرار' },
                 { id: 'daily', label: 'روزانه' },
                 { id: 'weekly', label: 'هفتگی' },
                 { id: 'monthly', label: 'ماهانه' }
-              ].map(option => (
+              ].map(opt => (
                 <button
-                  key={option.id}
+                  key={opt.id}
                   type="button"
-                  onClick={() => setFormData({ ...formData, recurrence: option.id })}
-                  className={`px-4 py-2 rounded-lg text-sm font-bold transition-all border ${
-                    formData.recurrence === option.id 
-                      ? 'bg-primary text-white border-primary shadow-md' 
-                      : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'
-                  }`}
+                  onClick={() => setForm({ ...form, recurrence: opt.id })}
+                  className={`flex-1 h-10 rounded-[10px] text-sm font-medium transition-colors border
+                    ${form.recurrence === opt.id 
+                      ? 'bg-primary text-white border-primary' 
+                      : 'bg-surface text-foreground-soft border-border hover:bg-surface-2'}`}
                 >
-                  {option.label}
+                  {opt.label}
                 </button>
               ))}
             </div>
           </div>
 
-          {/* یک گرید واحد با ۳ ستون */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-
-            {/* فیلد اول: زمان */}
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-1">زمان اولین یادآوری *</label>
-              <input
-                type="datetime-local"
-                name="first_reminder"
-                required
-                value={formData.first_reminder}
-                onChange={handleChange}
-                className="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-primary outline-none transition-all text-sm"
-              />
-            </div>
-
-            {/* فیلد دوم: تعداد دفعات */}
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-1">تعداد کل دفعات</label>
-              <input
-                type="number"
-                name="repeat_reminder"
-                min="1"
-                required
-                value={formData.repeat_reminder}
-                onChange={handleChange}
-                className="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-primary outline-none transition-all"
-              />
-              <p className="text-[10px] text-gray-400 mt-1">شامل اولین (حداقل ۱)</p>
-            </div>
-
-            {/* فیلد سوم: فاصله زمانی */}
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-1">فاصله (دقیقه)</label>
-              <input
-                type="number"
-                name="time_between_reminders"
-                min="1"
-                disabled={formData.repeat_reminder < 2}
-                required={formData.repeat_reminder >= 2}
-                value={formData.time_between_reminders}
-                onChange={handleChange}
-                className="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-primary outline-none transition-all disabled:bg-gray-100 disabled:text-gray-400"
-              />
-            </div>
+          <div className="grid grid-cols-2 gap-4">
+            <Input
+              label="تعداد کل دفعات"
+              type="number"
+              min="1"
+              value={form.repeat_reminder}
+              onChange={(e) => setForm({ ...form, repeat_reminder: parseInt(e.target.value) || '' })}
+            />
+            <Input
+              label="فاصله (دقیقه)"
+              type="number"
+              min="1"
+              disabled={form.repeat_reminder < 2}
+              value={form.time_between_reminders}
+              onChange={(e) => setForm({ ...form, time_between_reminders: parseInt(e.target.value) || '' })}
+            />
           </div>
+          </form>
+        )}
 
-          <div className="pt-4 flex gap-3">
-            <button
-              type="button"
-              onClick={handleClose}
-              className="flex-1 px-4 py-2.5 bg-gray-100 text-gray-700 font-bold rounded-lg hover:bg-gray-200 transition-colors"
-            >
-              انصراف
-            </button>
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className={`flex-1 px-4 py-2.5 text-white font-bold rounded-lg shadow-md transition-colors flex justify-center items-center gap-2
-                ${isSubmitting ? 'bg-primary/70 cursor-not-allowed' : 'bg-primary hover:bg-blue-600'}`}
-            >
-              {isSubmitting ? 'در حال ثبت...' : 'ذخیره یادآور'}
-            </button>
+        {mode === 'edit' && (
+          <div className="px-5 py-4 border-t border-border flex justify-end gap-2 bg-surface-2">
+            <Button variant="ghost" onClick={onClose} disabled={submitting}>انصراف</Button>
+            <Button onClick={handleSubmit} disabled={submitting}>
+              {submitting ? 'در حال ذخیره...' : taskToEdit ? 'ذخیره تغییرات' : 'افزودن'}
+            </Button>
           </div>
-        </form>
+        )}
       </div>
     </div>
   );

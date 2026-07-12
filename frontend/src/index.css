@@ -1,34 +1,67 @@
-/* ۱. وارد کردن هسته موتور تیلویند ۴ */
 @import "tailwindcss";
 
-/* ۲. تعریف رنگ‌های سازمانی پروژه به زبان تیلویند ۴ */
 @theme {
-  --color-primary: #3498db;   /* آبی جذاب برای دکمه‌های اصلی */
-  --color-secondary: #2c3e50; /* سرمه‌ای تیره برای سایدبار */
-  --color-accent: #2ecc71;    /* سبز برای پیام‌های موفقیت و تیک‌ها */
+  /* Palette — Cloud White */
+  --color-background: #fafbfc;
+  --color-surface: #ffffff;
+  --color-surface-2: #f4f6f9;
+  --color-border: #e8ecf1;
+  --color-border-strong: #d5dbe3;
+  --color-muted: #94a3b8;
+  --color-foreground: #0f172a;
+  --color-foreground-soft: #475569;
+
+  --color-primary: #3b82f6;
+  --color-primary-hover: #2563eb;
+  --color-primary-soft: #eff6ff;
+
+  --color-success: #10b981;
+  --color-warning: #f59e0b;
+  --color-danger: #ef4444;
+  --color-danger-soft: #fef2f2;
+
+  /* Type */
+  --font-sans: "Figtree", "Vazirmatn", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Outfit", "Vazirmatn", ui-sans-serif, system-ui, sans-serif;
+
+  /* Radius */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 20px;
+
+  /* Shadows — soft, blue-tinted */
+  --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.04);
+  --shadow-md: 0 4px 12px rgba(15, 23, 42, 0.06);
+  --shadow-lg: 0 12px 32px rgba(15, 23, 42, 0.08);
 }
 
-/* ۳. تنظیمات پایه بدنه (Body) */
+html { direction: rtl; }
+
 body {
-  direction: rtl;
-  font-family: 'Tahoma', sans-serif;
-  background-color: #f3f4f6; /* یک خاکستری بسیار روشن برای تفکیک بهتر کارت‌ها از پس‌زمینه */
-  color: #1f2937;            /* رنگ متن اصلی (کمی ملایم‌تر از مشکی خالص) */
+  font-family: var(--font-sans);
+  background-color: var(--color-background);
+  color: var(--color-foreground);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* استایل‌دهی به اسکرول‌بار برای زیبایی بیشتر (مخصوص مرورگرهای بر پایه کروم) */
-::-webkit-scrollbar {
-  width: 8px;
-}
-::-webkit-scrollbar-track {
-  background: #f1f1f1;
-}
-::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
+h1, h2, h3, h4 { font-family: var(--font-display); letter-spacing: -0.01em; }
+
+/* Focus ring */
+:where(button, a, input, select, textarea):focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
   border-radius: 4px;
 }
-::-webkit-scrollbar-thumb:hover {
-  background: #94a3b8;
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
 }
