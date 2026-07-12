@@ -1,6 +1,6 @@
 import { toast } from 'react-toastify';
 import { useState, useEffect, useMemo, useRef } from 'react';
-import { Plus, Bell, Clock, CheckCircle2, AlertCircle, Repeat, Undo2 } from 'lucide-react';
+import { Plus, Bell, Clock, CheckCircle2, AlertCircle, Repeat, Undo2, Folder } from 'lucide-react';
 import axiosInstance from '../api/axiosInstance';
 import { categoryApi } from '../api/categoryApi';
 import TaskModal from '../components/TaskModal';
@@ -208,18 +208,6 @@ export default function Dashboard() {
       {/* Filters */}
       <div className="space-y-3">
         <div className="flex gap-2 bg-surface-2 rounded-[10px] p-1 w-fit">
-          {TIME_FILTERS.map((t) => (
-            <button
-              key={t.key}
-              onClick={() => setActiveTimeFilter(t.key)}
-              className={`h-8 px-3 rounded-[8px] text-sm font-medium transition-colors
-                ${activeTimeFilter === t.key ? 'bg-surface text-foreground shadow-sm' : 'text-foreground-soft hover:text-foreground'}`}
-            >
-              {t.label}
-            </button>
-          ))}
-        </div>
-        <div className="flex gap-2 bg-surface-2 rounded-[10px] p-1 w-fit">
           {STATUS_TABS.map((t) => (
             <button
               key={t.key}
@@ -232,19 +220,35 @@ export default function Dashboard() {
           ))}
         </div>
 
-        {categories.length > 0 && (
-          <div className="flex gap-2 overflow-x-auto pb-1">
-            <Chip active={activeCategory === 'all'} onClick={() => setActiveCategory('all')}>همه</Chip>
-            {categories.map((c) => (
-              <Chip key={c.id} active={activeCategory === c.id} onClick={() => setActiveCategory(c.id)}>
-                <div className="flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: c.color || '#9ca3af' }} />
-                  <span>{c.name}</span>
-                </div>
-              </Chip>
-            ))}
+        <div className="flex items-center gap-3">
+          <div className="relative w-full sm:w-auto">
+            <Clock className="absolute start-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-foreground-soft" />
+            <select
+              value={activeTimeFilter}
+              onChange={(e) => setActiveTimeFilter(e.target.value)}
+              className="appearance-none bg-surface-2 border border-border rounded-[8px] h-9 ps-8 pe-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 w-full sm:w-auto cursor-pointer"
+            >
+              <option value="today">امروز</option>
+              <option value="week">این هفته</option>
+              <option value="month">این ماه</option>
+              <option value="all">همه</option>
+            </select>
           </div>
-        )}
+
+          <div className="relative w-full sm:w-auto">
+            <Folder className="absolute start-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-foreground-soft" />
+            <select
+              value={activeCategory}
+              onChange={(e) => setActiveCategory(e.target.value)}
+              className="appearance-none bg-surface-2 border border-border rounded-[8px] h-9 ps-8 pe-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 w-full sm:w-auto cursor-pointer"
+            >
+              <option value="all">همه دسته‌ها</option>
+              {categories.map((c) => (
+                <option key={c.id} value={c.id}>{c.name}</option>
+              ))}
+            </select>
+          </div>
+        </div>
       </div>
 
       {/* List */}
