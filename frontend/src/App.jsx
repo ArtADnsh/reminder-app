@@ -3,6 +3,7 @@ import Login from './pages/Login';
 import Signup from "./pages/Signup.jsx";
 import Dashboard from './pages/Dashboard';
 import Profile from './pages/Profile';
+import AboutPage from './pages/AboutPage';
 import MainLayout from './layout/MainLayout';
 import ProtectedRoute from './components/ProtectedRoute';
 import GuestRoute from './components/GuestRoute';
@@ -31,6 +32,7 @@ function App() {
           {/* Outlet Component: وقتی آدرس دقیقاً / باشد، Dashboard رندر می‌شود */}
           <Route index element={<Dashboard />} />
           <Route path="profile" element={<Profile />} />
+          <Route path="about" element={<AboutPage />} />
         </Route>
 
         {/* مدیریت خطای 404 - هدایت خودکار کاربر به داشبورد */}

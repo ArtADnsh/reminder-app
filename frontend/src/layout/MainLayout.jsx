@@ -2,7 +2,6 @@ import { useContext, useState, useRef, useEffect } from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
 import { AuthContext } from '../context/authContext';
 import { useWebsocketNotifications } from '../hooks/useWebsocketNotifications';
-import AboutDeveloperModal from '../components/AboutDeveloperModal';
 
 export default function MainLayout() {
   const { user, logout } = useContext(AuthContext);
@@ -10,7 +9,6 @@ export default function MainLayout() {
   const [isDesktopMenuOpen, setIsDesktopMenuOpen] = useState(true);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
-  const [isAboutModalOpen, setIsAboutModalOpen] = useState(false);
   const dropdownRef = useRef(null);
   const profileDropdownRef = useRef(null);
   const location = useLocation();
@@ -91,18 +89,20 @@ export default function MainLayout() {
           ))}
         </nav>
 
-        {/* About Developer Button */}
+        {/* About App Button */}
         <div className="p-4 border-t border-gray-700">
-          <button
-            onClick={() => {
-              setIsMobileMenuOpen(false);
-              setIsAboutModalOpen(true);
-            }}
-            className="flex items-center gap-3 px-4 py-3 w-full rounded-lg text-gray-300 hover:bg-gray-800 hover:text-white transition-colors group"
+          <Link
+            to="/about"
+            onClick={() => setIsMobileMenuOpen(false)}
+            className={`flex items-center gap-3 px-4 py-3 w-full rounded-lg transition-colors group ${
+              location.pathname === '/about' 
+                ? 'bg-primary text-white shadow-md' 
+                : 'text-gray-300 hover:bg-gray-800 hover:text-white'
+            }`}
           >
-            <span className="text-lg opacity-70 group-hover:opacity-100 transition-opacity">ℹ️</span>
-            <span className="font-medium text-sm">درباره توسعه‌دهنده</span>
-          </button>
+            <span className="text-lg">ℹ️</span>
+            <span className="font-medium">درباره برنامه</span>
+          </Link>
         </div>
       </aside>
 
@@ -273,16 +273,10 @@ export default function MainLayout() {
         </main>
       </div>
 
-      {/* About Developer Modal */}
-      <AboutDeveloperModal 
-        isOpen={isAboutModalOpen} 
-        onClose={() => setIsAboutModalOpen(false)} 
-      />
-
       {/* پس‌زمینه تاریک برای موبایل در زمان باز بودن سایدبار */}
       {isMobileMenuOpen && (
         <div
-          className="fixed inset-0 bg-black bg-opacity-50 z-40 md:hidden"
+          className="fixed inset-0 bg-black/40 backdrop-blur-sm z-40 md:hidden transition-all duration-300 animate-in fade-in"
           onClick={() => setIsMobileMenuOpen(false)}
         ></div>
       )}
