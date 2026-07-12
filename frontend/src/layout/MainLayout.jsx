@@ -50,7 +50,7 @@ export default function MainLayout() {
       >
         <div className={`h-16 flex items-center border-b border-border ${isCollapsed ? 'justify-center px-0' : 'justify-between px-4'}`}>
           {!isCollapsed && (
-            <span className="font-display font-semibold text-foreground">⏳ یادآور</span>
+            <span className="font-display font-semibold text-foreground">⏳ Task reminder</span>
           )}
           <div className="flex items-center">
             <button

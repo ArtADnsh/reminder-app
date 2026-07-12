@@ -168,11 +168,7 @@ export default function Dashboard() {
       {
         className: '!bg-slate-800 !rounded-[14px] !border !border-slate-700 !shadow-lg',
         bodyClassName: '!p-0 !m-0',
-        progressStyle: { 
-          background: '#64748b', 
-          backgroundImage: 'none',
-          opacity: 0.8 
-        },
+        progressClassName: 'custom-solid-progress',
         closeButton: false,
         autoClose: 5000,
       }
