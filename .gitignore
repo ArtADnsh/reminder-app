@@ -87,3 +87,6 @@ Thumbs.db
 # Proxy config (contains credentials)
 # =========================
 proxy/config.json
+
+
+node_modules/
