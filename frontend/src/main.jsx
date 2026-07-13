@@ -22,7 +22,8 @@ ReactDOM.createRoot(document.getElementById('root')).render(
         draggable
         pauseOnHover
         theme="light"
-        toastClassName="font-sans text-sm rounded-xl shadow-lg"
+        toastClassName="!bg-white/60 !backdrop-blur-2xl !border !border-white/80 !shadow-[0_25px_50px_-12px_rgba(0,0,0,0.25)] !rounded-2xl !text-slate-800 font-sans text-sm mb-4 me-4"
+        bodyClassName="!text-slate-800 !font-medium"
       />
     </AuthProvider>
   </React.StrictMode>,

@@ -66,16 +66,16 @@ export default function TaskModal({ isOpen, onClose, taskToEdit, categories = []
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm" onClick={onClose}>
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/20 backdrop-blur-sm" onClick={onClose}>
       <div 
-        className="bg-surface rounded-[20px] shadow-lg w-full max-w-lg overflow-hidden animate-in fade-in zoom-in-95 duration-200"
+        className="relative bg-white/60 backdrop-blur-2xl border border-white/80 shadow-[0_25px_50px_-12px_rgba(0,0,0,0.25)] rounded-3xl w-full max-w-lg mx-4 overflow-hidden animate-modal text-slate-800"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between px-5 h-14 border-b border-border">
-          <h2 className="font-display font-semibold text-lg">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-white/40">
+          <h2 className="font-display font-bold text-xl text-slate-800">
             {mode === 'view' ? t('modal.viewTitle') : taskToEdit ? t('modal.editTitle') : t('modal.newTitle')}
           </h2>
-          <button onClick={onClose} aria-label={t('modal.close')} className="p-2 rounded-md hover:bg-surface-2">
+          <button onClick={onClose} aria-label={t('modal.close')} className="p-2 rounded-xl hover:bg-white/50 text-slate-500 hover:text-slate-800 transition-colors">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -83,18 +83,18 @@ export default function TaskModal({ isOpen, onClose, taskToEdit, categories = []
         {mode === 'view' ? (
           <div className="p-6 space-y-6">
             <div>
-              <h3 className="text-xl font-bold text-foreground">{form.title}</h3>
+              <h3 className="text-xl font-bold text-slate-800">{form.title}</h3>
               {form.description && (
-                <p className="mt-3 text-base text-foreground-soft whitespace-pre-wrap leading-relaxed">
+                <p className="mt-3 text-base text-slate-600 whitespace-pre-wrap leading-relaxed">
                   {form.description}
                 </p>
               )}
             </div>
             
-            <div className="grid grid-cols-2 gap-4 pt-4 border-t border-border">
+            <div className="grid grid-cols-2 gap-4 pt-4 border-t border-white/40">
               <div>
-                <div className="text-xs text-muted mb-1">{t('modal.reminderTime')}</div>
-                <div className="font-medium text-sm">
+                <div className="text-xs text-slate-500 mb-1">{t('modal.reminderTime')}</div>
+                <div className="font-medium text-sm text-slate-800">
                   {form.first_reminder ? new Date(form.first_reminder).toLocaleString(currentLocale, {
                     year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit'
                   }) : '—'}
@@ -102,8 +102,8 @@ export default function TaskModal({ isOpen, onClose, taskToEdit, categories = []
               </div>
               
               <div>
-                <div className="text-xs text-muted mb-1">{t('modal.category')}</div>
-                <div className="font-medium text-sm">
+                <div className="text-xs text-slate-500 mb-1">{t('modal.category')}</div>
+                <div className="font-medium text-sm text-slate-800">
                   {categories.find(c => c.id == form.category)?.name || t('modal.noCategory')}
                 </div>
               </div>
@@ -111,14 +111,14 @@ export default function TaskModal({ isOpen, onClose, taskToEdit, categories = []
               {form.recurrence !== 'none' && (
                 <>
                   <div>
-                    <div className="text-xs text-muted mb-1">{t('modal.recurrence')}</div>
+                    <div className="text-xs text-slate-500 mb-1">{t('modal.recurrence')}</div>
                     <div className="font-medium text-sm text-primary">
                       {form.recurrence === 'daily' ? t('task.daily') : form.recurrence === 'weekly' ? t('task.weekly') : t('task.monthly')}
                     </div>
                   </div>
                   <div>
-                    <div className="text-xs text-muted mb-1">{t('modal.recurrenceSettings')}</div>
-                    <div className="font-medium text-sm">
+                    <div className="text-xs text-slate-500 mb-1">{t('modal.recurrenceSettings')}</div>
+                    <div className="font-medium text-sm text-slate-800">
                       {t('task.countLabel')} {form.repeat_reminder} {t('modal.timesInterval')} {form.time_between_reminders} {t('modal.minutesSuffix')}
                     </div>
                   </div>
@@ -127,27 +127,28 @@ export default function TaskModal({ isOpen, onClose, taskToEdit, categories = []
             </div>
 
             <div className="pt-2 flex justify-end">
-              <Button onClick={() => setMode('edit')}>{t('modal.editBtn')}</Button>
+              <button onClick={() => setMode('edit')} className="h-10 px-4 text-sm font-bold rounded-xl bg-primary text-white shadow-md hover:bg-primary/90 transition-colors">{t('modal.editBtn')}</button>
             </div>
           </div>
         ) : (
-          <form onSubmit={handleSubmit} className="p-5 space-y-4">
+          <form onSubmit={handleSubmit} className="p-6 space-y-4">
           <Input
             label={t('modal.fieldTitle')}
             value={form.title}
             onChange={(e) => setForm({ ...form, title: e.target.value })}
             error={errors.title}
             placeholder={t('modal.placeholderTitle')}
+            className="!bg-slate-100/50 !border-white/50 !text-slate-800 placeholder:!text-slate-400 !rounded-xl"
           />
 
           <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-medium">{t('modal.fieldDesc')}</label>
+            <label className="text-sm font-medium text-slate-800">{t('modal.fieldDesc')}</label>
             <textarea
               rows={3}
               value={form.description}
               onChange={(e) => setForm({ ...form, description: e.target.value })}
-              className="px-3 py-2 rounded-[10px] border border-border bg-surface text-foreground
-                placeholder:text-muted resize-none focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+              className="px-3 py-2 rounded-xl border border-white/50 bg-slate-100/50 text-slate-800
+                placeholder:text-slate-400 resize-none focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
               placeholder={t('modal.placeholderDesc')}
             />
           </div>
@@ -158,13 +159,14 @@ export default function TaskModal({ isOpen, onClose, taskToEdit, categories = []
               type="datetime-local"
               value={form.first_reminder}
               onChange={(e) => setForm({ ...form, first_reminder: e.target.value })}
+              className="!bg-slate-100/50 !border-white/50 !text-slate-800 !rounded-xl"
             />
             <div className="flex flex-col gap-1.5">
-              <label className="text-sm font-medium">{t('modal.fieldCategory')}</label>
+              <label className="text-sm font-medium text-slate-800">{t('modal.fieldCategory')}</label>
               <select
                 value={form.category}
                 onChange={(e) => setForm({ ...form, category: e.target.value })}
-                className="h-10 px-3 rounded-[10px] border border-border bg-surface focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+                className="h-10 px-3 rounded-xl border border-white/50 bg-slate-100/50 text-slate-800 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
               >
                 <option value="">—</option>
                 {categories.map((c) => (
@@ -175,7 +177,7 @@ export default function TaskModal({ isOpen, onClose, taskToEdit, categories = []
           </div>
 
           <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-medium">{t('modal.fieldRecurrence')}</label>
+            <label className="text-sm font-medium text-slate-800">{t('modal.fieldRecurrence')}</label>
             <div className="flex gap-2">
               {[
                 { id: 'none', labelKey: 'modal.recurrenceNone' },
@@ -187,10 +189,10 @@ export default function TaskModal({ isOpen, onClose, taskToEdit, categories = []
                   key={opt.id}
                   type="button"
                   onClick={() => setForm({ ...form, recurrence: opt.id })}
-                  className={`flex-1 h-10 rounded-[10px] text-sm font-medium transition-colors border
+                  className={`flex-1 h-10 rounded-xl text-sm font-bold transition-colors border
                     ${form.recurrence === opt.id 
-                      ? 'bg-primary text-white border-primary' 
-                      : 'bg-surface text-foreground-soft border-border hover:bg-surface-2'}`}
+                      ? 'bg-primary text-white border-primary shadow-md' 
+                      : 'bg-slate-100/50 text-slate-600 border-white/50 hover:bg-white/70 hover:text-slate-800'}`}
                 >
                   {t(opt.labelKey)}
                 </button>
@@ -205,6 +207,7 @@ export default function TaskModal({ isOpen, onClose, taskToEdit, categories = []
               min="1"
               value={form.repeat_reminder}
               onChange={(e) => setForm({ ...form, repeat_reminder: parseInt(e.target.value) || '' })}
+              className="!bg-slate-100/50 !border-white/50 !text-slate-800 !rounded-xl"
             />
             <Input
               label={t('modal.fieldInterval')}
@@ -213,17 +216,20 @@ export default function TaskModal({ isOpen, onClose, taskToEdit, categories = []
               disabled={form.recurrence === 'none'}
               value={form.time_between_reminders}
               onChange={(e) => setForm({ ...form, time_between_reminders: parseInt(e.target.value) || '' })}
+              className="!bg-slate-100/50 !border-white/50 !text-slate-800 !rounded-xl"
             />
           </div>
           </form>
         )}
 
         {mode === 'edit' && (
-          <div className="px-5 py-4 border-t border-border flex justify-end gap-2 bg-surface-2">
-            <Button variant="ghost" onClick={onClose} disabled={submitting}>{t('modal.cancel')}</Button>
-            <Button onClick={handleSubmit} disabled={submitting}>
+          <div className="px-6 py-4 border-t border-white/40 flex justify-end gap-3 bg-white/30 backdrop-blur-md">
+            <button type="button" onClick={onClose} disabled={submitting} className="h-10 px-5 text-sm font-bold rounded-xl text-slate-600 bg-slate-100/50 hover:bg-white/70 hover:text-slate-900 transition-colors disabled:opacity-50">
+              {t('modal.cancel')}
+            </button>
+            <button onClick={handleSubmit} disabled={submitting} className="h-10 px-6 text-sm font-bold rounded-xl bg-primary text-white shadow-md hover:bg-primary/90 transition-colors disabled:opacity-50">
               {submitting ? t('modal.saving') : taskToEdit ? t('modal.saveChanges') : t('modal.add')}
-            </Button>
+            </button>
           </div>
         )}
       </div>

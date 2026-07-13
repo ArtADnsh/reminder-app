@@ -191,9 +191,11 @@ export default function MainLayout() {
                   )}
                 </button>
                 {isNotifOpen && (
-                  <div className="fixed top-[75px] start-4 end-4 w-auto sm:absolute sm:top-full sm:mt-3 sm:end-0 sm:start-auto sm:w-96 bg-white/95 backdrop-blur-xl rounded-2xl shadow-xl border border-white/60 z-50 overflow-hidden flex flex-col transform sm:origin-top-end">
-                    <div className="px-5 py-4 border-b border-gray-100 bg-gray-50/50 flex justify-between items-center">
-                      <span className="font-semibold text-sm text-gray-800">{t('layout.notifications')}</span>
+                  <div className="fixed top-[75px] start-4 end-4 w-auto sm:absolute sm:top-full sm:mt-3 sm:end-0 sm:start-auto sm:w-96 
+                                  bg-white/90 backdrop-blur-xl border border-white/60 shadow-2xl rounded-2xl z-50 overflow-hidden 
+                                  flex flex-col transform origin-top-right animate-in fade-in zoom-in-95 duration-200 animate-dropdown">
+                    <div className="px-5 py-4 border-b border-white/50 bg-white/30 flex justify-between items-center">
+                      <span className="font-semibold text-sm text-slate-800">{t('layout.notifications')}</span>
                     </div>
                     <div className="max-h-80 overflow-y-auto">
                       {!notifications || notifications.length === 0 ? (
@@ -258,10 +260,11 @@ export default function MainLayout() {
                   </div>
                 </div>
                 {isProfileOpen && (
-                  <div className="absolute end-0 mt-2 w-56 bg-white/95 backdrop-blur-xl rounded-2xl shadow-xl border border-white/60 z-50 overflow-hidden flex flex-col transform origin-top-end">
-                    <div className="px-4 py-3 border-b border-gray-100 bg-gray-50/50">
-                      <p className="text-sm font-bold text-gray-800 truncate">{user?.username}</p>
-                      <p className="text-xs text-gray-500 truncate mt-0.5 text-start" dir="ltr">{user?.email}</p>
+                  <div className="absolute end-0 mt-3 w-56 bg-white/90 backdrop-blur-xl border border-white/60 shadow-2xl rounded-2xl z-50 overflow-hidden 
+                                  flex flex-col transform origin-top-right animate-in fade-in zoom-in-95 duration-200 animate-dropdown">
+                    <div className="px-4 py-3 border-b border-white/50 bg-white/30">
+                      <p className="text-sm font-bold text-slate-800 truncate">{user?.username}</p>
+                      <p className="text-xs text-slate-500 truncate mt-0.5" dir="ltr">{user?.email}</p>
                     </div>
                     <div className="p-1">
                       <Link to="/profile" className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 hover:text-primary rounded-xl transition-colors">
