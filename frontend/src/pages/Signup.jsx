@@ -1,8 +1,10 @@
 import { useState, useContext } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import { Loader2, UserPlus } from 'lucide-react';
+import { toast } from 'react-toastify';
 import { AuthContext } from '../context/authContext';
 import axiosInstance from '../api/axiosInstance';
-import { toast } from 'react-toastify';
+import authBg from '../assets/auth-bg.jpeg';
 
 export default function Signup() {
   const [username, setUsername] = useState('');
@@ -19,55 +21,35 @@ export default function Signup() {
     e.preventDefault();
     setError('');
 
-    // اعتبارسنجی اولیه در سمت کلاینت
     if (!username.trim() || !email.trim() || !password.trim() || !confirmPassword.trim()) {
       const msg = 'پر کردن تمامی فیلدها الزامی است.';
-      setError(msg);
-      toast.warning(msg);
-      return;
+      setError(msg); toast.warning(msg); return;
     }
-
     if (password !== confirmPassword) {
       const msg = 'رمز عبور و تکرار آن با هم مطابقت ندارند.';
-      setError(msg);
-      toast.warning(msg);
-      return;
+      setError(msg); toast.warning(msg); return;
     }
 
     setIsSubmitting(true);
     try {
-      // ۱. ارسال درخواست ثبت‌نام به بک‌اند جنگو
       await axiosInstance.post('auth/signup/', { username, email, password });
-
       toast.success('ثبت‌نام با موفقیت انجام شد! در حال ورود...');
-
-      // ۲. لاگین خودکار بلافاصله پس از ثبت‌نام
       const loginRes = await axiosInstance.post('auth/login/', { username, password });
-      
-      login(loginRes.data); 
+      login(loginRes.data);
       navigate('/');
     } catch (err) {
       let errorMsg = 'خطایی در ثبت‌نام رخ داد. لطفا نام کاربری دیگری امتحان کنید.';
-      
-      if (err.response && err.response.data) {
+      if (err.response?.data) {
         const data = err.response.data;
-        if (data.password && data.password.length > 0) {
-          errorMsg = data.password[0];
-        } else if (data.username && data.username.length > 0) {
-          errorMsg = data.username[0];
-        } else if (data.email && data.email.length > 0) {
-          errorMsg = data.email[0];
-        } else if (data.non_field_errors && data.non_field_errors.length > 0) {
-          errorMsg = data.non_field_errors[0];
-        } else if (data.detail) {
-          errorMsg = data.detail;
-        } else if (typeof data === 'object') {
-          const firstKey = Object.keys(data)[0];
-          if (firstKey && Array.isArray(data[firstKey])) {
-            errorMsg = data[firstKey][0];
-          } else if (typeof data[firstKey] === 'string') {
-            errorMsg = data[firstKey];
-          }
+        if (data.password?.length) errorMsg = data.password[0];
+        else if (data.username?.length) errorMsg = data.username[0];
+        else if (data.email?.length) errorMsg = data.email[0];
+        else if (data.non_field_errors?.length) errorMsg = data.non_field_errors[0];
+        else if (data.detail) errorMsg = data.detail;
+        else if (typeof data === 'object') {
+          const k = Object.keys(data)[0];
+          if (k && Array.isArray(data[k])) errorMsg = data[k][0];
+          else if (typeof data[k] === 'string') errorMsg = data[k];
         }
       }
       setError(errorMsg);
@@ -77,86 +59,122 @@ export default function Signup() {
     }
   };
 
+  const fieldClass =
+    'w-full h-11 rounded-xl border border-border bg-background px-4 text-[15px] text-foreground placeholder:text-muted outline-none transition-all duration-200 focus:border-primary focus:ring-4 focus:ring-primary/15 disabled:opacity-60';
+
   return (
-    <div className="flex items-center justify-center min-h-screen px-4 bg-gray-100">
-      <div className="w-full max-w-md p-8 overflow-hidden transition-all bg-white shadow-xl rounded-2xl hover:shadow-2xl">
-        <div className="mb-8 text-center">
-          <h2 className="mb-2 text-3xl font-bold text-secondary">ثبت‌نام</h2>
-          <p className="text-sm text-gray-500">برای ایجاد حساب کاربری جدید، اطلاعات زیر را وارد کنید</p>
-        </div>
+    <div
+      className="relative min-h-screen flex items-center justify-center px-4 py-10 font-sans bg-background overflow-hidden"
+    >
+      {/* Concept background */}
+      <img
+        src={authBg}
+        alt=""
+        aria-hidden="true"
+        className="pointer-events-none select-none absolute inset-0 h-full w-full object-cover opacity-95"
+      />
+      {/* Soft wash so the form stays readable */}
+      <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-background/30 via-transparent to-background/50" />
+      {/* Top-Right Vibrant Blue Glow */}
+      <div className="pointer-events-none absolute -top-40 -end-40 h-[500px] w-[500px] rounded-full bg-blue-500/25 blur-[120px]" />
+      {/* Bottom-Left Vibrant Indigo/Purple Glow */}
+      <div className="pointer-events-none absolute -bottom-40 -start-40 h-[500px] w-[500px] rounded-full bg-indigo-500/20 blur-[120px]" />
 
-        {error && (
-          <div className="px-4 py-3 mb-6 text-sm text-center text-red-600 border border-red-100 bg-red-50 rounded-xl">
-            {error}
-          </div>
-        )}
-
-        <form onSubmit={handleSubmit} className="space-y-5">
-          <div>
-            <label className="block mb-1 text-sm font-semibold text-gray-700">نام کاربری</label>
-            <input
-              type="text"
-              className="w-full px-4 py-2.5 rounded-xl border border-gray-300 focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all text-gray-800 bg-gray-50 focus:bg-white"
-              placeholder="یک شناسه یکتا انتخاب کنید"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              disabled={isSubmitting}
-            />
+      <div className="relative w-full max-w-md">
+        <div className="bg-white/85 backdrop-blur-xl border border-white/60 rounded-[20px] shadow-[0_20px_60px_-20px_rgba(59,130,246,0.25)] p-8 sm:p-10">
+          <div className="mx-auto mb-6 flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+            <UserPlus className="h-6 w-6" />
           </div>
 
-          <div>
-            <label className="block mb-1 text-sm font-semibold text-gray-700">ایمیل</label>
-            <input
-              type="email"
-              className="w-full px-4 py-2.5 rounded-xl border border-gray-300 focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all text-gray-800 bg-gray-50 focus:bg-white"
-              placeholder="email@example.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              disabled={isSubmitting}
+          <div className="text-center mb-8">
+            <h1 className="font-display text-3xl font-semibold tracking-tight text-foreground">
+              ساخت حساب کاربری
+            </h1>
+            <p className="mt-2 text-sm text-muted">
+              برای ایجاد حساب جدید، اطلاعات زیر را وارد کنید
+            </p>
+          </div>
+
+          {error && (
+            <div
+              role="alert"
+              className="mb-6 rounded-xl border border-danger/20 bg-danger/5 px-4 py-3 text-center text-sm text-danger"
+            >
+              {error}
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label htmlFor="su-username" className="block text-sm font-medium text-foreground mb-1.5">
+                نام کاربری
+              </label>
+              <input
+                id="su-username" type="text" autoComplete="username" className={fieldClass}
+                placeholder="یک شناسه یکتا انتخاب کنید"
+                value={username} onChange={(e) => setUsername(e.target.value)} disabled={isSubmitting}
               />
-          </div>
+            </div>
 
-          <div>
-            <label className="block mb-1 text-sm font-semibold text-gray-700">رمز عبور</label>
-            <input
-              type="password"
-              className="w-full px-4 py-2.5 rounded-xl border border-gray-300 focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all text-gray-800 bg-gray-50 focus:bg-white"
-              placeholder="••••••••"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
+            <div>
+              <label htmlFor="su-email" className="block text-sm font-medium text-foreground mb-1.5">
+                ایمیل
+              </label>
+              <input
+                id="su-email" type="email" autoComplete="email" className={fieldClass}
+                placeholder="email@example.com" dir="ltr"
+                value={email} onChange={(e) => setEmail(e.target.value)} disabled={isSubmitting}
+              />
+            </div>
+
+            <div>
+              <label htmlFor="su-password" className="block text-sm font-medium text-foreground mb-1.5">
+                رمز عبور
+              </label>
+              <input
+                id="su-password" type="password" autoComplete="new-password" className={fieldClass}
+                placeholder="••••••••"
+                value={password} onChange={(e) => setPassword(e.target.value)} disabled={isSubmitting}
+              />
+            </div>
+
+            <div>
+              <label htmlFor="su-confirm" className="block text-sm font-medium text-foreground mb-1.5">
+                تکرار رمز عبور
+              </label>
+              <input
+                id="su-confirm" type="password" autoComplete="new-password" className={fieldClass}
+                placeholder="••••••••"
+                value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} disabled={isSubmitting}
+              />
+            </div>
+
+            <button
+              type="submit"
               disabled={isSubmitting}
-            />
-          </div>
+              className="mt-2 w-full h-11 inline-flex items-center justify-center gap-2 rounded-xl bg-primary text-white font-medium text-[15px] shadow-sm transition-all duration-150 hover:bg-primary-hover hover:shadow-md focus-visible:ring-4 focus-visible:ring-primary/25 disabled:opacity-60 disabled:cursor-not-allowed"
+            >
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  در حال ثبت‌نام...
+                </>
+              ) : (
+                'ایجاد حساب کاربری'
+              )}
+            </button>
+          </form>
 
-          <div>
-            <label className="block mb-1 text-sm font-semibold text-gray-700">تکرار رمز عبور</label>
-            <input
-              type="password"
-              className="w-full px-4 py-2.5 rounded-xl border border-gray-300 focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all text-gray-800 bg-gray-50 focus:bg-white"
-              placeholder="••••••••"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              disabled={isSubmitting}
-            />
-          </div>
-
-          <button
-            type="submit"
-            disabled={isSubmitting}
-            className={`w-full py-3 px-4 mt-2 text-white font-bold rounded-xl shadow-md transition-all duration-300 flex justify-center items-center gap-2 
-              ${isSubmitting ? 'bg-primary/70 cursor-not-allowed' : 'bg-primary hover:bg-blue-600 hover:shadow-lg'}`}
-          >
-            {isSubmitting ? 'در حال ثبت‌نام...' : 'ایجاد حساب کاربری'}
-          </button>
-        </form>
-
-        {/* دکمه بازگشت به لاگین */}
-        <p className="mt-8 text-sm text-center text-gray-600">
-          قبلاً ثبت‌نام کرده‌اید؟{' '}
-          <Link to="/login" className="font-bold transition-colors text-primary hover:text-blue-700 hover:underline">
-            وارد شوید
-          </Link>
-        </p>
+          <p className="mt-8 text-sm text-center text-muted">
+            قبلاً ثبت‌نام کرده‌اید؟{' '}
+            <Link
+              to="/login"
+              className="font-medium text-primary hover:text-primary-hover transition-colors"
+            >
+              وارد شوید
+            </Link>
+          </p>
+        </div>
       </div>
     </div>
   );
