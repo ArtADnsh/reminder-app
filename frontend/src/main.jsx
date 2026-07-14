@@ -12,8 +12,8 @@ ReactDOM.createRoot(document.getElementById('root')).render(
     <AuthProvider>
       <App />
       <ToastContainer
-        style={{ width: "100%", padding: "0 16px" }}
-        position="bottom-center"
+        /* استایل خطی کاملاً حذف شد و پوزیشن برگشت به حالت اصلی */
+        position="bottom-right"
         autoClose={3000}
         hideProgressBar={false}
         newestOnTop={false}
