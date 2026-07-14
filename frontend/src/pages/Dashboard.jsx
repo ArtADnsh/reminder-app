@@ -1,7 +1,7 @@
-import { toast } from 'react-toastify';
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Plus, Bell, Clock, CheckCircle2, AlertCircle, Repeat, Undo2, Folder } from 'lucide-react';
+import { showToast } from '../utils/toastHelper';
 import axiosInstance from '../api/axiosInstance';
 import { categoryApi } from '../api/categoryApi';
 import TaskModal from '../components/TaskModal';
@@ -29,6 +29,7 @@ const TIME_FILTERS = [
 export default function Dashboard() {
   const { t, i18n } = useTranslation();
   const currentLocale = i18n.language === 'fa' ? 'fa-IR' : 'en-US';
+  
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeStatus, setActiveStatus] = useState('pending');
@@ -58,12 +59,16 @@ export default function Dashboard() {
     setIsModalOpen(true);
   };
 
-  const fetchTasks = () => {
+  const fetchTasks = async () => {
     setLoading(true);
-    axiosInstance.get('tasks/')
-      .then((r) => setTasks(r.data))
-      .catch(() => toast.error(t('dashboard.errorLoading')))
-      .finally(() => setLoading(false));
+    try {
+      const response = await axiosInstance.get('tasks/');
+      setTasks(response.data);
+    } catch (error) {
+      showToast.error(t('dashboard.errorLoading'));
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -130,28 +135,29 @@ export default function Dashboard() {
       setTasks((prev) =>
         prev.map((t) => (t.id === task.id ? { ...t, is_done: !task.is_done } : t))
       );
-    } catch {
-      toast.error(t('dashboard.errorToggle'));
+    } catch (error) {
+      showToast.error(t('dashboard.errorToggle'));
     }
   };
 
   const handleDelete = (task) => {
-    // Optimistically remove from state
+    /* Optimistically update the UI before the network request completes. */
     setTasks((prev) => prev.filter((t) => t.id !== task.id));
 
-    // Schedule actual delete
+    /* Defer the network deletion to allow for undo functionality. */
     const timer = setTimeout(async () => {
       try {
         await axiosInstance.delete(`tasks/${task.id}/`);
-      } catch {
-        toast.error(t('dashboard.errorDelete'));
-        fetchTasks(); // Restore sync if backend fails
+      } catch (error) {
+        showToast.error(t('dashboard.errorDelete'));
+        fetchTasks();
       }
     }, 5000);
+    
     deleteTimeoutRef.current = timer;
 
-    // Show undo toast
-    toast(
+    /* Display a custom toast notification with an undo action. */
+    showToast.custom(
       ({ closeToast }) => (
         <div className="flex items-center justify-between w-full">
           <span className="font-semibold text-slate-600">{t('dashboard.taskDeleted')}</span>
@@ -187,7 +193,6 @@ export default function Dashboard() {
         </Card>
       )}
 
-      {/* Header */}
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
           <h1 className="text-2xl font-display font-semibold text-foreground">{t('dashboard.title')}</h1>
@@ -200,14 +205,12 @@ export default function Dashboard() {
         </Button>
       </div>
 
-      {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
         <StatCard icon={Bell} label={t('filters.pending')} value={stats.pending} tone="warning" />
         <StatCard icon={AlertCircle} label={t('filters.overdue')} value={stats.overdue} tone="danger" />
         <StatCard icon={CheckCircle2} label={t('filters.done')} value={stats.done} tone="success" />
       </div>
 
-      {/* Filters */}
       <div className="space-y-3">
         <div className="flex gap-2 bg-surface-2 rounded-[10px] p-1 w-fit">
           {STATUS_TABS.map((tItem) => (
@@ -253,7 +256,6 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* List */}
       <div className="space-y-2">
         {loading ? (
           Array.from({ length: 4 }).map((_, i) => <SkeletonRow key={i} />)

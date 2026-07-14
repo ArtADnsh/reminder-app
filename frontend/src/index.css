@@ -103,7 +103,7 @@ h1, h2, h3, h4 {
   animation-delay: 0.05s; 
 }
 
-/* Toast Animation */
+/* Toast Animation (Smooth slide-up entry) */
 @keyframes toast-slide-up {
   0% { opacity: 0; transform: translateY(20px) scale(0.95); }
   100% { opacity: 1; transform: translateY(0) scale(1); }
@@ -116,25 +116,25 @@ h1, h2, h3, h4 {
   4. REACT-TOASTIFY OVERRIDES (Sizing & Theme)
   ========================================= */
   :root {
-    /* نابود کردن رنگ سفید پیش‌فرض کتابخونه برای متن‌ها */
-    --toastify-text-color-success: #334155 !important; /* متن خاکستری تیره برای موفقیت */
-    --toastify-text-color-error: #475569 !important;   /* متن خاکستری ملایم برای خطا */
+    /* Override default ReactToastify text colors */
+    --toastify-text-color-success: #334155 !important;
+    --toastify-text-color-error: #475569 !important;
     --toastify-text-color-warning: #334155 !important;
     --toastify-text-color-info: #334155 !important;
   
-    /* تنظیم رنگ آیکون‌ها (تیک و ضربدر) که با متن هماهنگ بشن */
-    --toastify-icon-color-success: #10b981 !important; /* سبز خوانا */
-    --toastify-icon-color-error: #ef4444 !important;   /* قرمز خوانا */
+    /* Synchronize icon colors with typography */
+    --toastify-icon-color-success: #10b981 !important;
+    --toastify-icon-color-error: #ef4444 !important;
   }
 
 @media (min-width: 640px) {
   :root {
-    /* سایز دسکتاپ - همون عرض لوکس و بزرگی که می‌خواستی */
+    /* Desktop standard width */
     --toastify-toast-width: 480px;
   }
 }
 
-/* نوار پیشرفت (Progress Bar) */
+/* Progress Bar Customizations */
 .Toastify__progress-bar {
   height: 4px !important;
   border-bottom-right-radius: 16px !important;
@@ -149,18 +149,18 @@ h1, h2, h3, h4 {
   background: rgba(248, 113, 113, 0.8) !important; 
 }
 
-/* تیر خلاص برای حل مشکل سفیدی متن توست‌ها */
+/* Force text color on ReactToastify inner body components */
 .Toastify__toast-body,
 .Toastify__toast-body > div:last-child {
-  color: #475569 !important; /* معادل text-slate-600 (خاکستری ملایم و خوانا) */
+  color: #475569 !important;
 }
 
-/* برای اطمینان از اینکه توست موفقیت هم حتماً تیره میشه */
+/* Ensure text contrast on success variants */
 .Toastify__toast-theme--light.Toastify__toast--success .Toastify__toast-body {
-  color: #334155 !important; /* معادل text-slate-700 (کمی تیره‌تر برای خوانایی بهتر روی هاله سبز) */
+  color: #334155 !important;
 }
 
-/* تنظیمات موبایل: تمام‌عرض و وسط‌چین */
+/* Mobile Layout: Full width and centered */
 @media (max-width: 639px) {
   .Toastify__toast-container {
     width: 100% !important;
@@ -171,7 +171,7 @@ h1, h2, h3, h4 {
   }
 }
 
-/* تنظیمات لپ‌تاپ و صفحات بزرگ: عرض ثابت و چسبیده به گوشه راست */
+/* Desktop Layout: Fixed width aligned to the right */
 @media (min-width: 640px) {
   .Toastify__toast-container {
     width: 380px !important;

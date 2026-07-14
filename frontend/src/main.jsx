@@ -12,7 +12,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
     <AuthProvider>
       <App />
       <ToastContainer
-        /* استایل خطی کاملاً حذف شد و پوزیشن برگشت به حالت اصلی */
+        /* Inline styles have been removed to restore default positioning */
         position="bottom-right"
         autoClose={3000}
         hideProgressBar={false}
@@ -24,6 +24,8 @@ ReactDOM.createRoot(document.getElementById('root')).render(
         pauseOnHover
         theme="light"
         toastClassName={(context) =>
+          /* Note: The 'me-4' class is removed to preserve the correct screen positioning */
+          /* Note: The 'w-full' class ensures the toast expands to the container's max width */
           `relative flex w-full p-4 min-h-16 justify-between items-center overflow-hidden cursor-pointer backdrop-blur-xl shadow-2xl rounded-2xl mb-4 border ${
             context?.type === 'success'
               ? 'bg-green-50/20 border-green-200/30'

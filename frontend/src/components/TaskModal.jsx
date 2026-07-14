@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { X } from 'lucide-react';
-import { toast } from 'react-toastify';
+import { showToast } from '../utils/toastHelper';
 import axiosInstance from '../api/axiosInstance';
 import Button from './ui/Button';
 import Input from './ui/Input';
@@ -9,6 +9,7 @@ import Input from './ui/Input';
 export default function TaskModal({ isOpen, onClose, taskToEdit, categories = [], onSaved, initialMode = 'edit' }) {
   const { t, i18n } = useTranslation();
   const currentLocale = i18n.language === 'fa' ? 'fa-IR' : 'en-US';
+  
   const [mode, setMode] = useState(initialMode);
   const [form, setForm] = useState({
     title: '', description: '', first_reminder: '', category: '', 
@@ -18,24 +19,31 @@ export default function TaskModal({ isOpen, onClose, taskToEdit, categories = []
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    if (taskToEdit) {
-      setForm({
-        title: taskToEdit.title || '',
-        description: taskToEdit.description || '',
-        first_reminder: taskToEdit.first_reminder?.slice(0, 16) || '',
-        category: taskToEdit.category?.id || '',
-        recurrence: taskToEdit.recurrence || 'none',
-        repeat_reminder: taskToEdit.repeat_reminder || 1,
-        time_between_reminders: taskToEdit.time_between_reminders || '',
-      });
-    }
+    if (!taskToEdit) return;
+    
+    setForm({
+      title: taskToEdit.title || '',
+      description: taskToEdit.description || '',
+      first_reminder: taskToEdit.first_reminder?.slice(0, 16) || '',
+      category: taskToEdit.category?.id || '',
+      recurrence: taskToEdit.recurrence || 'none',
+      repeat_reminder: taskToEdit.repeat_reminder || 1,
+      time_between_reminders: taskToEdit.time_between_reminders || '',
+    });
   }, [taskToEdit]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
     const errs = {};
-    if (!form.title.trim()) errs.title = t('modal.titleRequired');
-    if (Object.keys(errs).length) return setErrors(errs);
+    if (!form.title.trim()) {
+      errs.title = t('modal.titleRequired');
+    }
+    
+    if (Object.keys(errs).length > 0) {
+      return setErrors(errs);
+    }
+    
     const payload = {
       title: form.title,
       description: form.description,
@@ -50,17 +58,32 @@ export default function TaskModal({ isOpen, onClose, taskToEdit, categories = []
     try {
       if (taskToEdit) {
         await axiosInstance.patch(`tasks/${taskToEdit.id}/`, payload);
-        toast.success(<span className="flex-1 text-right text-slate-600 font-bold">{t('modal.updatedSuccess')}</span>);
+        showToast.success(t('modal.updatedSuccess'));
       } else {
         await axiosInstance.post('tasks/', payload);
-        toast.success(<span className="flex-1 text-right text-slate-600 font-bold">{t('modal.addedSuccess')}</span>);
+        showToast.success(t('modal.addedSuccess'));
       }
       onSaved?.();
-    } catch {
-      toast.error(t('modal.saveError'));
+    } catch (error) {
+      showToast.error(t('modal.saveError'));
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const getModalTitle = () => {
+    if (mode === 'view') return t('modal.viewTitle');
+    if (taskToEdit) return t('modal.editTitle');
+    return t('modal.newTitle');
+  };
+
+  const getRecurrenceLabel = (recurrenceType) => {
+    const mapping = {
+      daily: 'task.daily',
+      weekly: 'task.weekly',
+      monthly: 'task.monthly',
+    };
+    return t(mapping[recurrenceType] || '');
   };
 
   if (!isOpen) return null;
@@ -73,7 +96,7 @@ export default function TaskModal({ isOpen, onClose, taskToEdit, categories = []
       >
         <div className="flex items-center justify-between px-6 py-4 border-b border-white/40">
           <h2 className="font-display font-bold text-xl text-slate-800">
-            {mode === 'view' ? t('modal.viewTitle') : taskToEdit ? t('modal.editTitle') : t('modal.newTitle')}
+            {getModalTitle()}
           </h2>
           <button onClick={onClose} aria-label={t('modal.close')} className="p-2 rounded-xl hover:bg-white/50 text-slate-500 hover:text-slate-800 transition-colors">
             <X className="w-5 h-5" />
@@ -113,7 +136,7 @@ export default function TaskModal({ isOpen, onClose, taskToEdit, categories = []
                   <div>
                     <div className="text-xs text-slate-500 mb-1">{t('modal.recurrence')}</div>
                     <div className="font-medium text-sm text-primary">
-                      {form.recurrence === 'daily' ? t('task.daily') : form.recurrence === 'weekly' ? t('task.weekly') : t('task.monthly')}
+                      {getRecurrenceLabel(form.recurrence)}
                     </div>
                   </div>
                   <div>
