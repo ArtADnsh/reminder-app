@@ -50,10 +50,10 @@ export default function TaskModal({ isOpen, onClose, taskToEdit, categories = []
     try {
       if (taskToEdit) {
         await axiosInstance.patch(`tasks/${taskToEdit.id}/`, payload);
-        toast.success(t('modal.updatedSuccess'));
+        toast.success(<span className="flex-1 text-right text-slate-600 font-bold">{t('modal.updatedSuccess')}</span>);
       } else {
         await axiosInstance.post('tasks/', payload);
-        toast.success(t('modal.addedSuccess'));
+        toast.success(<span className="flex-1 text-right text-slate-600 font-bold">{t('modal.addedSuccess')}</span>);
       }
       onSaved?.();
     } catch {

@@ -2,17 +2,18 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import './i18n';
 import App from './App.jsx';
-import './index.css';
 import { AuthProvider } from './context/AuthContext.jsx';
-import { ToastContainer } from 'react-toastify';
+import { ToastContainer, Slide } from 'react-toastify'; 
 import 'react-toastify/dist/ReactToastify.css';
+import './index.css';
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <AuthProvider>
       <App />
       <ToastContainer
-        position="bottom-right"
+        style={{ width: "100%", padding: "0 16px" }}
+        position="bottom-center"
         autoClose={3000}
         hideProgressBar={false}
         newestOnTop={false}
@@ -22,8 +23,18 @@ ReactDOM.createRoot(document.getElementById('root')).render(
         draggable
         pauseOnHover
         theme="light"
-        toastClassName="!bg-white/60 !backdrop-blur-2xl !border !border-white/80 !shadow-[0_25px_50px_-12px_rgba(0,0,0,0.25)] !rounded-2xl !text-slate-800 font-sans text-sm mb-4 me-4"
-        bodyClassName="!text-slate-800 !font-medium"
+        toastClassName={(context) =>
+          `relative flex w-full p-4 min-h-16 justify-between items-center overflow-hidden cursor-pointer backdrop-blur-xl shadow-2xl rounded-2xl mb-4 border ${
+            context?.type === 'success'
+              ? 'bg-green-50/20 border-green-200/30'
+              : context?.type === 'error'
+              ? 'bg-red-50/20 border-red-200/30'
+              : context?.type === 'warning'
+              ? 'bg-yellow-50/20 border-yellow-200/30'
+              : 'bg-white/40 border-white/40'
+          }`
+        }
+        bodyClassName="!text-slate-700 !font-bold !text-sm flex w-full flex-1 text-right items-center"
       />
     </AuthProvider>
   </React.StrictMode>,

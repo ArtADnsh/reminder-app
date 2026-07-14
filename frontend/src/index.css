@@ -1,5 +1,8 @@
 @import "tailwindcss";
 
+/* =========================================
+   1. THEME CONFIGURATION (Tailwind v4)
+   ========================================= */
 @theme {
   /* Palette — Cloud White */
   --color-background: #fafbfc;
@@ -20,7 +23,7 @@
   --color-danger: #ef4444;
   --color-danger-soft: #fef2f2;
 
-  /* Type */
+  /* Typography */
   --font-sans: "Figtree", "Vazirmatn", ui-sans-serif, system-ui, sans-serif;
   --font-display: "Outfit", "Vazirmatn", ui-sans-serif, system-ui, sans-serif;
 
@@ -36,7 +39,12 @@
   --shadow-lg: 0 12px 32px rgba(15, 23, 42, 0.08);
 }
 
-html { direction: rtl; }
+/* =========================================
+   2. BASE STYLES & ACCESSIBILITY
+   ========================================= */
+html { 
+  direction: rtl; 
+}
 
 body {
   font-family: var(--font-sans);
@@ -46,7 +54,10 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
-h1, h2, h3, h4 { font-family: var(--font-display); letter-spacing: -0.01em; }
+h1, h2, h3, h4 { 
+  font-family: var(--font-display); 
+  letter-spacing: -0.01em; 
+}
 
 /* Focus ring */
 :where(button, a, input, select, textarea):focus-visible {
@@ -63,48 +74,88 @@ h1, h2, h3, h4 { font-family: var(--font-display); letter-spacing: -0.01em; }
 
 /* Reduced motion */
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+  *, *::before, *::after { 
+    animation-duration: 0.01ms !important; 
+    transition-duration: 0.01ms !important; 
+  }
 }
 
-/* Override react-toastify progress bar default gradients */
-.custom-solid-progress {
-  background: #64748b !important;
-  background-image: none !important;
-}
+/* =========================================
+   3. UI ANIMATIONS (Glassmorphism Layer)
+   ========================================= */
 
-:root {
-  --toastify-color-progress-dark: #64748b !important;
-}
-
-/* این انیمیشن رو به پروژه‌ت اضافه کن */
+/* Dropdown Animation */
 @keyframes dropdown-fade-in {
-  0% {
-    opacity: 0;
-    transform: translateY(-10px) scale(0.95);
-  }
-  100% {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
+  0% { opacity: 0; transform: translateY(-10px) scale(0.95); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
 }
-
 .animate-dropdown {
   animation: dropdown-fade-in 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
-/* انیمیشنِ ورودِ مدال (نرم و کمی بزرگشونده) */
+/* Modal Animation (Restored missing keyframes) */
 @keyframes modal-entrance {
-  0% {
-    opacity: 0;
-    transform: scale(1.05);
-  }
-  100% {
-    opacity: 1;
-    transform: scale(1);
-  }
+  0% { opacity: 0; transform: translateY(10px) scale(0.98); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
 }
-
 .animate-modal {
   animation: modal-entrance 0.3s cubic-bezier(0.2, 0.8, 0.4, 1) both;
   animation-delay: 0.05s; 
+}
+
+/* Toast Animation */
+@keyframes toast-slide-up {
+  0% { opacity: 0; transform: translateY(20px) scale(0.95); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+.animate-toast {
+  animation: toast-slide-up 0.4s cubic-bezier(0.2, 0.8, 0.4, 1) both;
+}
+
+/* =========================================
+  4. REACT-TOASTIFY OVERRIDES (Sizing & Theme)
+  ========================================= */
+  :root {
+    /* نابود کردن رنگ سفید پیش‌فرض کتابخونه برای متن‌ها */
+    --toastify-text-color-success: #334155 !important; /* متن خاکستری تیره برای موفقیت */
+    --toastify-text-color-error: #475569 !important;   /* متن خاکستری ملایم برای خطا */
+    --toastify-text-color-warning: #334155 !important;
+    --toastify-text-color-info: #334155 !important;
+  
+    /* تنظیم رنگ آیکون‌ها (تیک و ضربدر) که با متن هماهنگ بشن */
+    --toastify-icon-color-success: #10b981 !important; /* سبز خوانا */
+    --toastify-icon-color-error: #ef4444 !important;   /* قرمز خوانا */
+  }
+
+@media (min-width: 640px) {
+  :root {
+    /* سایز دسکتاپ - همون عرض لوکس و بزرگی که می‌خواستی */
+    --toastify-toast-width: 480px;
+  }
+}
+
+/* نوار پیشرفت (Progress Bar) */
+.Toastify__progress-bar {
+  height: 4px !important;
+  border-bottom-right-radius: 16px !important;
+  background: rgba(255, 255, 255, 0.5) !important;
+}
+
+.Toastify__toast-theme--light.Toastify__toast--success .Toastify__progress-bar {
+  background: rgba(74, 222, 128, 0.8) !important; 
+}
+
+.Toastify__toast-theme--light.Toastify__toast--error .Toastify__progress-bar {
+  background: rgba(248, 113, 113, 0.8) !important; 
+}
+
+/* تیر خلاص برای حل مشکل سفیدی متن توست‌ها */
+.Toastify__toast-body,
+.Toastify__toast-body > div:last-child {
+  color: #475569 !important; /* معادل text-slate-600 (خاکستری ملایم و خوانا) */
+}
+
+/* برای اطمینان از اینکه توست موفقیت هم حتماً تیره میشه */
+.Toastify__toast-theme--light.Toastify__toast--success .Toastify__toast-body {
+  color: #334155 !important; /* معادل text-slate-700 (کمی تیره‌تر برای خوانایی بهتر روی هاله سبز) */
 }

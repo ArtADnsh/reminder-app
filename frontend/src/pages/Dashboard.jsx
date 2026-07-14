@@ -154,14 +154,14 @@ export default function Dashboard() {
     toast(
       ({ closeToast }) => (
         <div className="flex items-center justify-between w-full">
-          <span className="font-semibold text-white">{t('dashboard.taskDeleted')}</span>
+          <span className="font-semibold text-slate-600">{t('dashboard.taskDeleted')}</span>
           <button
             onClick={() => {
               clearTimeout(timer);
               setTasks((prev) => [...prev, task]);
               closeToast();
             }}
-            className="p-1.5 rounded-md text-white hover:text-primary hover:bg-slate-700 transition-all duration-200"
+            className="p-1.5 rounded-xl bg-slate-100/30 text-slate-600 hover:bg-white/60 hover:text-slate-900 transition-all duration-200 border border-transparent hover:border-white/40"
             aria-label={t('dashboard.undo')}
           >
             <Undo2 className="w-5 h-5" />
@@ -169,9 +169,8 @@ export default function Dashboard() {
         </div>
       ),
       {
-        className: '!bg-slate-800 !rounded-[14px] !border !border-slate-700 !shadow-lg',
-        bodyClassName: '!p-0 !m-0',
-        progressClassName: 'custom-solid-progress',
+        type: 'error',
+        bodyClassName: '!p-0 !m-0 w-full flex items-center',
         closeButton: false,
         autoClose: 5000,
       }
