@@ -236,7 +236,7 @@ export default function TaskModal({ isOpen, onClose, taskToEdit, categories = []
               label={t('modal.fieldInterval')}
               type="number"
               min="1"
-              disabled={form.recurrence === 'none'}
+              disabled={form.repeat_reminder <= 1}
               value={form.time_between_reminders}
               onChange={(e) => setForm({ ...form, time_between_reminders: parseInt(e.target.value) || '' })}
               className="!bg-slate-100/50 !border-white/50 !text-slate-800 !rounded-xl"
