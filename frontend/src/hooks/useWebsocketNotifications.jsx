@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { toast } from 'react-toastify';
+import { showToast } from '../utils/toastHelper';
 import axiosInstance from '../api/axiosInstance';
 
 export const useWebsocketNotifications = (token) => {
@@ -93,12 +93,10 @@ export const useWebsocketNotifications = (token) => {
 
             setNotifications(prev => [newNotif, ...prev]);
 
-            toast(
-              <div className="flex flex-col gap-2" dir="rtl">
-                <strong className="text-gray-900 text-lg font-extrabold flex items-center gap-2">
-                  <span className="text-primary text-xl">🔔</span> {newNotif.title}
-                </strong>
-              </div>, 
+            showToast.reminder(
+              newNotif.title, 
+              null,
+              null,
               {
                 position: "top-right",
                 autoClose: 8000,
@@ -106,7 +104,6 @@ export const useWebsocketNotifications = (token) => {
                 closeOnClick: false,
                 pauseOnHover: true,
                 draggable: true,
-                className: 'rounded-2xl shadow-2xl border-2 border-primary/20 p-5 bg-white',
               }
             );
           }
