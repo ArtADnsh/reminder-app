@@ -40,9 +40,24 @@ export default function TaskModal({ isOpen, onClose, taskToEdit, categories = []
       errs.title = t('modal.titleRequired');
     }
     
+    if (!form.first_reminder) {
+      errs.first_reminder = 'تاریخ و زمان الزامی است';
+    }
+    
+    if (form.repeat_reminder === '' || form.repeat_reminder <= 0) {
+      errs.repeat_reminder = 'عدد باید بزرگتر از ۰ باشد';
+    }
+    
+    if (form.repeat_reminder > 1) {
+      if (form.time_between_reminders === '' || form.time_between_reminders <= 0) {
+        errs.time_between_reminders = 'فاصله زمانی نامعتبر است';
+      }
+    }
+    
     if (Object.keys(errs).length > 0) {
       return setErrors(errs);
     }
+    setErrors({});
     
     const payload = {
       title: form.title,
@@ -182,6 +197,7 @@ export default function TaskModal({ isOpen, onClose, taskToEdit, categories = []
               type="datetime-local"
               value={form.first_reminder}
               onChange={(e) => setForm({ ...form, first_reminder: e.target.value })}
+              error={errors.first_reminder}
               className="!bg-slate-100/50 !border-white/50 !text-slate-800 !rounded-xl"
             />
             <div className="flex flex-col gap-1.5">
@@ -230,6 +246,7 @@ export default function TaskModal({ isOpen, onClose, taskToEdit, categories = []
               min="1"
               value={form.repeat_reminder}
               onChange={(e) => setForm({ ...form, repeat_reminder: parseInt(e.target.value) || '' })}
+              error={errors.repeat_reminder}
               className="!bg-slate-100/50 !border-white/50 !text-slate-800 !rounded-xl"
             />
             <Input
@@ -239,6 +256,7 @@ export default function TaskModal({ isOpen, onClose, taskToEdit, categories = []
               disabled={form.repeat_reminder <= 1}
               value={form.time_between_reminders}
               onChange={(e) => setForm({ ...form, time_between_reminders: parseInt(e.target.value) || '' })}
+              error={errors.time_between_reminders}
               className="!bg-slate-100/50 !border-white/50 !text-slate-800 !rounded-xl"
             />
           </div>
