@@ -45,7 +45,7 @@ export default function TaskModal({ isOpen, onClose, taskToEdit, categories = []
     }
     
     if (form.repeat_reminder === '' || form.repeat_reminder <= 0) {
-      errs.repeat_reminder = 'عدد باید بزرگتر از ۰ باشد';
+      errs.repeat_reminder = 'Invalid Input';
     }
     
     if (form.repeat_reminder > 1) {

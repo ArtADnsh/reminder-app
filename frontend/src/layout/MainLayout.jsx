@@ -252,7 +252,7 @@ export default function MainLayout() {
                       {user?.username}
                     </p>
                     <p className="text-xs text-slate-500">
-                      {t('sidebar.profileRole', { defaultValue: 'کاربر' })}
+                      {t('sidebar.profileRole')}
                     </p>
                   </div>
                   <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center text-white font-bold text-lg shadow-sm group-hover:bg-blue-600 group-hover:scale-105 transition-all">

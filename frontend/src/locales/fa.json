@@ -3,7 +3,8 @@
     "brand": "⏳ Task Reminder",
     "dashboard": "داشبورد",
     "settings": "تنظیمات",
-    "about": "درباره ما"
+    "about": "درباره ما",
+    "profileRole": "کاربر"
   },
   "layout": {
     "defaultTitle": "یادآور",

@@ -3,7 +3,8 @@
     "brand": "⏳ Task Reminder",
     "dashboard": "Dashboard",
     "settings": "Settings",
-    "about": "About Us"
+    "about": "About Us",
+    "profileRole": "User"
   },
   "layout": {
     "defaultTitle": "Reminder",
