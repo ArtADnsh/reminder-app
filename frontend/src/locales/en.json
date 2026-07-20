@@ -174,5 +174,33 @@
     "disconnectBtn": "Disconnect Telegram",
     "connectingBtn": "Connecting...",
     "connectBtn": "Connect Telegram"
+  },
+  "auth": {
+    "loginTitle": "Welcome Back",
+    "loginSubtitle": "Sign in to your account to access the dashboard",
+    "signupTitle": "Create Account",
+    "signupSubtitle": "Fill in the details below to create a new account",
+    "username": "Username",
+    "usernamePlaceholder": "Enter your username",
+    "signupUsernamePlaceholder": "Choose a unique username",
+    "email": "Email",
+    "password": "Password",
+    "confirmPassword": "Confirm Password",
+    "loginButton": "Sign In",
+    "loggingIn": "Signing in...",
+    "signupButton": "Create Account",
+    "signingUp": "Creating account...",
+    "noAccount": "Don't have an account?",
+    "signupLink": "Sign up",
+    "hasAccount": "Already have an account?",
+    "loginLink": "Sign in",
+    "requiredFields": "All fields are required.",
+    "passwordMismatch": "Passwords do not match.",
+    "loginError": "Incorrect username or password.",
+    "signupError": "An error occurred during registration. Please try a different username.",
+    "welcomeBack": "Welcome back, {{username}}!",
+    "signupSuccess": "Registration successful! Logging in...",
+    "switchToEn": "Switch to English",
+    "switchToFa": "تغییر به فارسی"
   }
 }

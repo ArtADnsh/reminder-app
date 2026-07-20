@@ -174,5 +174,33 @@
     "disconnectBtn": "لغو اتصال تلگرام",
     "connectingBtn": "در حال ارتباط...",
     "connectBtn": "اتصال به تلگرام"
+  },
+  "auth": {
+    "loginTitle": "خوش آمدید",
+    "loginSubtitle": "برای دسترسی به داشبورد، وارد حساب کاربری خود شوید",
+    "signupTitle": "ساخت حساب کاربری",
+    "signupSubtitle": "برای ایجاد حساب جدید، اطلاعات زیر را وارد کنید",
+    "username": "نام کاربری",
+    "usernamePlaceholder": "شناسه خود را وارد کنید",
+    "signupUsernamePlaceholder": "یک شناسه یکتا انتخاب کنید",
+    "email": "ایمیل",
+    "password": "رمز عبور",
+    "confirmPassword": "تکرار رمز عبور",
+    "loginButton": "ورود به سیستم",
+    "loggingIn": "در حال ورود...",
+    "signupButton": "ایجاد حساب کاربری",
+    "signingUp": "در حال ثبت‌نام...",
+    "noAccount": "حساب کاربری ندارید؟",
+    "signupLink": "ثبت‌نام کنید",
+    "hasAccount": "قبلاً ثبت‌نام کرده‌اید؟",
+    "loginLink": "وارد شوید",
+    "requiredFields": "پر کردن تمامی فیلدها الزامی است.",
+    "passwordMismatch": "رمز عبور و تکرار آن با هم مطابقت ندارند.",
+    "loginError": "نام کاربری یا رمز عبور اشتباه است.",
+    "signupError": "خطایی در ثبت‌نام رخ داد. لطفاً نام کاربری دیگری امتحان کنید.",
+    "welcomeBack": "خوش آمدی ، {{username}}!",
+    "signupSuccess": "ثبت‌نام با موفقیت انجام شد! در حال ورود...",
+    "switchToEn": "Switch to English",
+    "switchToFa": "تغییر به فارسی"
   }
 }

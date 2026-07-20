@@ -1,12 +1,17 @@
 import { useState, useContext } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { Loader2, LogIn } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { AuthContext } from '../context/authContext';
 import axiosInstance from '../api/axiosInstance';
 import authBg from '../assets/auth-bg.jpeg';
+import LanguageSwitcher from '../components/LanguageSwitcher';
 
 export default function Login() {
+  const { t, i18n } = useTranslation();
+  const isFa = i18n.language === 'fa';
+
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -20,7 +25,7 @@ export default function Login() {
     setError('');
 
     if (!username.trim() || !password.trim()) {
-      const msg = 'پر کردن تمامی فیلدها الزامی است.';
+      const msg = t('auth.requiredFields');
       setError(msg);
       toast.warning(msg);
       return;
@@ -31,18 +36,14 @@ export default function Login() {
       const response = await axiosInstance.post('auth/login/', { username, password });
       login(response.data);
       toast.success(
-        <div dir="rtl" className="w-full text-right font-medium font-sans">
-          خوش آمدی {response.data.username}! 👋
+        <div dir={isFa ? 'rtl' : 'ltr'} className="w-full font-medium font-sans">
+          {t('auth.welcomeBack', { username: response.data.username })} 👋
         </div>,
-        {
-        style: {
-          color: '#0f172a',                      
-        },
-      });
-
+        { style: { color: '#0f172a' } }
+      );
       navigate('/');
     } catch (err) {
-      const msg = err.response?.data?.detail || 'نام کاربری یا رمز عبور اشتباه است.';
+      const msg = err.response?.data?.detail || t('auth.loginError');
       setError(msg);
       toast.error(msg);
     } finally {
@@ -51,9 +52,10 @@ export default function Login() {
   };
 
   return (
-    <div
-      className="relative min-h-screen flex items-center justify-center px-4 py-10 font-sans bg-background overflow-hidden"
-    >
+    <div className="relative min-h-screen flex items-center justify-center px-4 py-10 font-sans bg-background overflow-hidden">
+      {/* Floating language switcher */}
+      <LanguageSwitcher />
+
       {/* Concept background */}
       <img
         src={authBg}
@@ -63,13 +65,14 @@ export default function Login() {
       />
       {/* Soft wash so the form stays readable */}
       <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-background/30 via-transparent to-background/50" />
-      {/* Top-Right Vibrant Blue Glow */}
+      {/* Top-end vibrant blue glow */}
       <div className="pointer-events-none absolute -top-40 -end-40 h-[500px] w-[500px] rounded-full bg-blue-500/25 blur-[120px]" />
-      {/* Bottom-Left Vibrant Indigo/Purple Glow */}
+      {/* Bottom-start vibrant indigo/purple glow */}
       <div className="pointer-events-none absolute -bottom-40 -start-40 h-[500px] w-[500px] rounded-full bg-indigo-500/20 blur-[120px]" />
 
       <div className="relative w-full max-w-md">
         <div className="bg-white/85 backdrop-blur-xl border border-white/60 rounded-[20px] shadow-[0_20px_60px_-20px_rgba(59,130,246,0.25)] p-8 sm:p-10">
+
           {/* Brand mark */}
           <div className="mx-auto mb-6 flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary">
             <LogIn className="h-6 w-6" />
@@ -77,10 +80,10 @@ export default function Login() {
 
           <div className="text-center mb-8">
             <h1 className="font-display text-3xl font-semibold tracking-tight text-foreground">
-              خوش آمدید
+              {t('auth.loginTitle')}
             </h1>
             <p className="mt-2 text-sm text-foreground-soft">
-              برای دسترسی به داشبورد، وارد حساب کاربری خود شوید
+              {t('auth.loginSubtitle')}
             </p>
           </div>
 
@@ -96,14 +99,15 @@ export default function Login() {
           <form onSubmit={handleSubmit} className="space-y-5">
             <div>
               <label htmlFor="username" className="block text-sm font-medium text-foreground mb-1.5">
-                نام کاربری
+                {t('auth.username')}
               </label>
               <input
                 id="username"
                 type="text"
                 autoComplete="username"
-                className="w-full h-11 rounded-xl border border-border bg-background px-4 text-[15px] text-foreground placeholder:text-muted outline-none transition-all duration-200 focus:border-primary focus:ring-4 focus:ring-primary/15 disabled:opacity-60"
-                placeholder="شناسه خود را وارد کنید"
+                dir="ltr"
+                className="w-full h-11 rounded-xl border border-border bg-background ps-4 pe-4 text-[15px] text-foreground placeholder:text-muted outline-none transition-all duration-200 focus:border-primary focus:ring-4 focus:ring-primary/15 disabled:opacity-60"
+                placeholder={t('auth.usernamePlaceholder')}
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 disabled={isSubmitting}
@@ -112,13 +116,14 @@ export default function Login() {
 
             <div>
               <label htmlFor="password" className="block text-sm font-medium text-foreground mb-1.5">
-                رمز عبور
+                {t('auth.password')}
               </label>
               <input
                 id="password"
                 type="password"
                 autoComplete="current-password"
-                className="w-full h-11 rounded-xl border border-border bg-background px-4 text-[15px] text-foreground placeholder:text-muted outline-none transition-all duration-200 focus:border-primary focus:ring-4 focus:ring-primary/15 disabled:opacity-60"
+                dir="ltr"
+                className="w-full h-11 rounded-xl border border-border bg-background ps-4 pe-4 text-[15px] text-foreground placeholder:text-muted outline-none transition-all duration-200 focus:border-primary focus:ring-4 focus:ring-primary/15 disabled:opacity-60"
                 placeholder="••••••••"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
@@ -134,21 +139,21 @@ export default function Login() {
               {isSubmitting ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  در حال ورود...
+                  {t('auth.loggingIn')}
                 </>
               ) : (
-                'ورود به سیستم'
+                t('auth.loginButton')
               )}
             </button>
           </form>
 
           <p className="mt-8 text-sm text-center text-muted">
-            حساب کاربری ندارید؟{' '}
+            {t('auth.noAccount')}{' '}
             <Link
               to="/signup"
               className="font-medium text-primary hover:text-primary-hover transition-colors"
             >
-              ثبت‌نام کنید
+              {t('auth.signupLink')}
             </Link>
           </p>
         </div>
