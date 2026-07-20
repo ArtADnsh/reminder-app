@@ -33,7 +33,15 @@ export default function Signup() {
     setIsSubmitting(true);
     try {
       await axiosInstance.post('auth/signup/', { username, email, password });
-      toast.success('ثبت‌نام با موفقیت انجام شد! در حال ورود...');
+            toast.success(
+        <div dir="rtl" className="w-full text-right font-medium font-sans">
+          ثبت‌نام با موفقیت انجام شد! در حال ورود...
+        </div>,
+        {
+        style: {
+          color: '#0f172a',                      
+        },
+      });
       const loginRes = await axiosInstance.post('auth/login/', { username, password });
       login(loginRes.data);
       navigate('/');
@@ -90,7 +98,7 @@ export default function Signup() {
             <h1 className="font-display text-3xl font-semibold tracking-tight text-foreground">
               ساخت حساب کاربری
             </h1>
-            <p className="mt-2 text-sm text-muted">
+            <p className="mt-2 text-sm text-foreground-soft">
               برای ایجاد حساب جدید، اطلاعات زیر را وارد کنید
             </p>
           </div>

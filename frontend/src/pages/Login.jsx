@@ -30,7 +30,16 @@ export default function Login() {
     try {
       const response = await axiosInstance.post('auth/login/', { username, password });
       login(response.data);
-      toast.success(`خوش آمدی ${response.data.username}! 👋`);
+      toast.success(
+        <div dir="rtl" className="w-full text-right font-medium font-sans">
+          خوش آمدی {response.data.username}! 👋
+        </div>,
+        {
+        style: {
+          color: '#0f172a',                      
+        },
+      });
+
       navigate('/');
     } catch (err) {
       const msg = err.response?.data?.detail || 'نام کاربری یا رمز عبور اشتباه است.';
@@ -70,7 +79,7 @@ export default function Login() {
             <h1 className="font-display text-3xl font-semibold tracking-tight text-foreground">
               خوش آمدید
             </h1>
-            <p className="mt-2 text-sm text-muted">
+            <p className="mt-2 text-sm text-foreground-soft">
               برای دسترسی به داشبورد، وارد حساب کاربری خود شوید
             </p>
           </div>
