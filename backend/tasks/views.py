@@ -126,12 +126,6 @@ class TaskViewSet(ModelViewSet):
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
     def validate(self, attrs):
         data = super().validate(attrs)
-
-        if not self.user.is_active:
-            raise serializers.ValidationError(
-                "Email not verified. Please verify your account first."
-            )
-
         data['username'] = self.user.username
         data['email'] = self.user.email
         data['user_id'] = self.user.id

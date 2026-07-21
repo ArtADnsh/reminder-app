@@ -20,7 +20,7 @@ from rest_framework.test import APITestCase, APIClient
 
 from pywebpush import WebPushException
 
-from .models import Task, Notification, Category, WebPushSubscription, TelegramConnection
+from .models import Task, Notification, Category, WebPushSubscription, TelegramConnection, OTPVerification
 from .serializers import TaskSerializer
 from .tasks import check_and_send_reminders, _send_reminder
 
@@ -139,7 +139,8 @@ class AuthenticationTests(BaseAPITestCase):
         )
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn('username', response.data)
+        self.assertIn('detail', response.data)
+        self.assertEqual(response.data['detail'], 'This username is already taken.')
 
     def test_login_returns_jwt_tokens_and_user_metadata(self):
         """Login should return access + refresh tokens and basic user info."""
@@ -2525,3 +2526,281 @@ class AutoCloneOnFinalReminderTests(TestCase):
             Task.objects.filter(user=self.user, title='No Double', is_done=False)
             .exclude(pk=task.pk).count(), 0,
         )
+
+
+# =========================================================================
+# Coverage: views.py — SignUpView dangling-account branches (171, 188-189, 193-197)
+# =========================================================================
+
+class SignUpDanglingAccountTests(TestCase):
+    """Every SignUpView.create branch that handles pre-existing accounts."""
+
+    def setUp(self):
+        self.url = reverse('api_signup')
+        self.pw = 'SecurePass123!'
+
+    # --- views.py:171 — active email blocks signup ---
+    def test_active_email_blocks_signup(self):
+        User.objects.create_user('u1', 'taken@example.com', self.pw)
+        resp = self.client.post(self.url, {
+            'username': 'another', 'email': 'taken@example.com', 'password': self.pw,
+        }, format='json')
+        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('already registered', resp.data['detail'])
+
+    # --- views.py:176-180 — active username blocks signup ---
+    def test_active_username_blocks_signup(self):
+        User.objects.create_user('taken', 'a@b.com', self.pw)
+        resp = self.client.post(self.url, {
+            'username': 'taken', 'email': 'x@y.com', 'password': self.pw,
+        }, format='json')
+        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('already taken', resp.data['detail'])
+
+    # --- views.py:188-189 — orphaned inactive username is deleted ---
+    def test_orphaned_inactive_username_deleted(self):
+        orphan = User.objects.create_user('ghost', 'g@h.com', self.pw, is_active=False)
+        orphan_pk = orphan.pk
+        resp = self.client.post(self.url, {
+            'username': 'ghost', 'email': 'new@e.com', 'password': self.pw,
+        }, format='json')
+        self.assertEqual(resp.status_code, status.HTTP_201_CREATED)
+        self.assertFalse(User.objects.filter(pk=orphan_pk).exists())
+
+    # --- views.py:193-197 — inactive email is resumed ---
+    def test_inactive_email_resumed_with_new_credentials(self):
+        old = User.objects.create_user('old', 'old@e.com', self.pw, is_active=False)
+        resp = self.client.post(self.url, {
+            'username': 'fresh', 'email': 'old@e.com', 'password': 'NewP@ss99',
+        }, format='json')
+        self.assertEqual(resp.status_code, status.HTTP_201_CREATED)
+        old.refresh_from_db()
+        self.assertEqual(old.username, 'fresh')
+        self.assertTrue(old.check_password('NewP@ss99'))
+
+    # --- views.py:198-205 — brand-new email creates user ---
+    def test_brand_new_email_creates_inactive_user(self):
+        resp = self.client.post(self.url, {
+            'username': 'brandnew', 'email': 'brand@n.com', 'password': self.pw,
+        }, format='json')
+        self.assertEqual(resp.status_code, status.HTTP_201_CREATED)
+        u = User.objects.get(username='brandnew')
+        self.assertFalse(u.is_active)
+        self.assertTrue(OTPVerification.objects.filter(user=u).exists())
+
+
+# =========================================================================
+# Coverage: views.py — ResendOTPView (245-273)
+# =========================================================================
+
+class ResendOTPViewCoverageTests(TestCase):
+
+    def setUp(self):
+        self.url = reverse('api_resend_otp')
+        self.pw = 'SecurePass123!'
+
+    @patch('tasks.views.send_mail')
+    def test_unknown_email(self, mock_mail):
+        resp = self.client.post(self.url, {'email': 'nobody@x.com'}, format='json')
+        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('No account found', resp.data['detail'])
+        mock_mail.assert_not_called()
+
+    @patch('tasks.views.send_mail')
+    def test_already_verified(self, mock_mail):
+        User.objects.create_user('done', 'done@x.com', self.pw)
+        resp = self.client.post(self.url, {'email': 'done@x.com'}, format='json')
+        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('already verified', resp.data['detail'])
+        mock_mail.assert_not_called()
+
+    @patch('tasks.views.send_mail')
+    def test_fresh_otp_reused(self, mock_mail):
+        u = User.objects.create_user('abc', 'abc@x.com', self.pw, is_active=False)
+        OTPVerification.objects.create(user=u, code='111111')
+        resp = self.client.post(self.url, {'email': 'abc@x.com'}, format='json')
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertEqual(OTPVerification.objects.get(user=u).code, '111111')
+        mock_mail.assert_called_once()
+
+    @patch('tasks.views.send_mail')
+    def test_expired_otp_regenerated(self, mock_mail):
+        u = User.objects.create_user('old', 'old@x.com', self.pw, is_active=False)
+        OTPVerification.objects.create(user=u, code='222222')
+        OTPVerification.objects.filter(user=u).update(
+            created_at=timezone.now() - timedelta(minutes=20))
+        resp = self.client.post(self.url, {'email': 'old@x.com'}, format='json')
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertNotEqual(OTPVerification.objects.get(user=u).code, '222222')
+        mock_mail.assert_called_once()
+
+    @patch('tasks.views.send_mail')
+    def test_no_existing_otp_created(self, mock_mail):
+        u = User.objects.create_user('nope', 'nope@x.com', self.pw, is_active=False)
+        resp = self.client.post(self.url, {'email': 'nope@x.com'}, format='json')
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertTrue(OTPVerification.objects.filter(user=u).exists())
+        mock_mail.assert_called_once()
+
+
+# =========================================================================
+# Coverage: views.py — VerifyOTPView (281-330)
+# =========================================================================
+
+class VerifyOTPViewCoverageTests(TestCase):
+
+    def setUp(self):
+        self.url = reverse('api_verify_otp')
+        self.pw = 'SecurePass123!'
+
+    def test_unknown_email(self):
+        resp = self.client.post(self.url, {'email': 'zz@z.com', 'otp': '000000'}, format='json')
+        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('No account found', resp.data['detail'])
+
+    def test_already_verified(self):
+        User.objects.create_user('v', 'v@x.com', self.pw)
+        resp = self.client.post(self.url, {'email': 'v@x.com', 'otp': '000000'}, format='json')
+        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('already verified', resp.data['detail'])
+
+    def test_no_otp_record(self):
+        User.objects.create_user('n', 'n@x.com', self.pw, is_active=False)
+        resp = self.client.post(self.url, {'email': 'n@x.com', 'otp': '000000'}, format='json')
+        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('No OTP found', resp.data['detail'])
+
+    def test_expired_otp(self):
+        u = User.objects.create_user('e', 'e@x.com', self.pw, is_active=False)
+        OTPVerification.objects.create(user=u, code='123456')
+        OTPVerification.objects.filter(user=u).update(
+            created_at=timezone.now() - timedelta(minutes=20))
+        resp = self.client.post(self.url, {'email': 'e@x.com', 'otp': '123456'}, format='json')
+        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('expired', resp.data['detail'].lower())
+        self.assertFalse(OTPVerification.objects.filter(user=u).exists())
+
+    def test_wrong_code(self):
+        u = User.objects.create_user('w', 'w@x.com', self.pw, is_active=False)
+        OTPVerification.objects.create(user=u, code='111111')
+        resp = self.client.post(self.url, {'email': 'w@x.com', 'otp': '222222'}, format='json')
+        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('Invalid OTP', resp.data['detail'])
+
+    def test_correct_code_activates_and_returns_tokens(self):
+        u = User.objects.create_user('ok', 'ok@x.com', self.pw, is_active=False)
+        OTPVerification.objects.create(user=u, code='999999')
+        resp = self.client.post(self.url, {'email': 'ok@x.com', 'otp': '999999'}, format='json')
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        u.refresh_from_db()
+        self.assertTrue(u.is_active)
+        self.assertFalse(OTPVerification.objects.filter(user=u).exists())
+        self.assertIn('tokens', resp.data)
+        self.assertIn('access', resp.data['tokens'])
+        self.assertIn('refresh', resp.data['tokens'])
+
+
+# =========================================================================
+# Coverage: views.py — LoginView warning log (359)
+# =========================================================================
+
+class LoginViewWarningLogTests(BaseAPITestCase):
+
+    def test_failed_login_hits_warning_branch(self):
+        resp = self.client.post(self.login_url, {
+            'username': 'ghost', 'password': 'Wrong!99',
+        }, format='json')
+        self.assertEqual(resp.status_code, status.HTTP_401_UNAUTHORIZED)
+
+
+# =========================================================================
+# Coverage: views.py — NotificationViewSet pagination (438-439)
+# =========================================================================
+
+class NotificationPaginationBranchTests(AuthenticatedAPITestCase):
+    def test_paginated_list_hits_page_branch(self):
+        from rest_framework.pagination import PageNumberPagination
+        from tasks.views import NotificationViewSet
+
+        class TestPagination(PageNumberPagination):
+            page_size = 2
+
+        orig_pagination = NotificationViewSet.pagination_class
+        NotificationViewSet.pagination_class = TestPagination
+        
+        try:
+            for i in range(5):
+                Notification.objects.create(user=self.user, title=f'N{i}')
+            
+            resp = self.client.get(reverse('notification-list'))
+            
+            self.assertEqual(resp.status_code, status.HTTP_200_OK)
+            self.assertIsInstance(resp.data, dict)
+            self.assertIn('results', resp.data)
+            self.assertEqual(len(resp.data['results']), 2)
+        finally:
+            NotificationViewSet.pagination_class = orig_pagination
+
+
+# =========================================================================
+# Coverage: models.py — clone_for_recurrence falsy first_reminder (101)
+# =========================================================================
+
+class CloneForRecurrenceFalsyTests(TestCase):
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.user = User.objects.create_user('cr', 'cr@t.com', 'SecurePass123!')
+
+    def test_clone_returns_none_without_first_reminder(self):
+        task = Task.objects.create(
+            user=self.user, title='NoReminder', recurrence='daily', first_reminder=None)
+        self.assertIsNone(task.clone_for_recurrence())
+
+
+# =========================================================================
+# Coverage: models.py — OTPVerification __str__ (150) and is_expired (158)
+# =========================================================================
+
+class OTPModelCoverageTests(TestCase):
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.user = User.objects.create_user('otpu', 'otpu@t.com', 'SecurePass123!')
+
+    def test_str(self):
+        otp = OTPVerification.objects.create(user=self.user, code='000000')
+        self.assertEqual(str(otp), f'OTP({self.user.email})')
+
+    def test_is_expired_false_when_fresh(self):
+        otp = OTPVerification.objects.create(user=self.user, code='111111')
+        self.assertFalse(otp.is_expired)
+
+    def test_is_expired_true_when_stale(self):
+        otp = OTPVerification.objects.create(user=self.user, code='222222')
+        OTPVerification.objects.filter(pk=otp.pk).update(
+            created_at=timezone.now() - timedelta(minutes=20))
+        otp.refresh_from_db()
+        self.assertTrue(otp.is_expired)
+
+
+# =========================================================================
+# Coverage: serializers.py — validate_username duplicate (162)
+# =========================================================================
+
+class UserProfileDuplicateUsernameTests(TestCase):
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.owner = User.objects.create_user('owner', 'ow@t.com', 'SecurePass123!')
+        cls.other = User.objects.create_user('taken', 'tk@t.com', 'SecurePass123!')
+
+    def test_validate_username_rejects_duplicate(self):
+        from .serializers import UserProfileSerializer
+        from rest_framework.test import APIRequestFactory
+        req = APIRequestFactory().patch('/api/users/me/')
+        req.user = self.owner
+        ser = UserProfileSerializer(
+            self.owner, data={'username': 'taken'}, partial=True, context={'request': req})
+        self.assertFalse(ser.is_valid())
+        self.assertIn('username', ser.errors)

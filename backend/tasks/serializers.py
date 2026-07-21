@@ -120,8 +120,6 @@ class TaskSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError("time_between_reminders must be greater than 0.")
             return attrs
 
-        return attrs
-
     def to_representation(self, instance):
         ret = super().to_representation(instance)
         if instance.category:
