@@ -10,9 +10,9 @@ import LanguageSwitcher from '../components/LanguageSwitcher';
 
 /* ─── helpers ─────────────────────────────────────────────────── */
 const BASE_INPUT =
-  'w-full h-11 rounded-xl border bg-background ps-4 pe-4 text-[15px] text-foreground placeholder:text-muted outline-none transition-all duration-200 disabled:opacity-60';
-const OK_INPUT   = 'border-border focus:border-primary focus:ring-4 focus:ring-primary/15';
-const ERR_INPUT  = 'border-rose-400/60 focus:border-rose-400 focus:ring-4 focus:ring-rose-400/20';
+  'w-full h-11 rounded-xl border bg-slate-100/50 ps-4 pe-4 text-[15px] text-slate-800 placeholder:text-slate-400 outline-none transition-all duration-300 disabled:opacity-60 focus:bg-white/80';
+const OK_INPUT   = 'border-white/50 focus:border-primary/50 focus:ring-2 focus:ring-primary/20';
+const ERR_INPUT  = 'border-rose-400/60 focus:border-rose-400 focus:ring-2 focus:ring-rose-400/20';
 
 export default function Login() {
   const { t, i18n } = useTranslation();
@@ -79,7 +79,7 @@ export default function Login() {
       <div className="pointer-events-none absolute -bottom-40 -start-40 h-[500px] w-[500px] rounded-full bg-indigo-500/20 blur-[120px]" />
 
       <div className="relative w-full max-w-md">
-        <div className="bg-white/85 backdrop-blur-xl border border-white/60 rounded-[20px] shadow-[0_20px_60px_-20px_rgba(59,130,246,0.25)] p-8 sm:p-10">
+        <div className="relative bg-white/60 backdrop-blur-2xl border border-white/80 shadow-[0_25px_50px_-12px_rgba(0,0,0,0.15)] rounded-3xl p-8 sm:p-10">
 
           {/* Brand mark */}
           <div className="mx-auto mb-6 flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary">
@@ -88,10 +88,10 @@ export default function Login() {
 
           {/* Heading */}
           <div className="text-center mb-8">
-            <h1 className="font-display text-3xl font-semibold tracking-tight text-foreground">
+            <h1 className="font-display text-3xl font-semibold tracking-tight text-slate-800">
               {t('auth.loginTitle')}
             </h1>
-            <p className="mt-2 text-sm text-foreground-soft">
+            <p className="mt-2 text-sm text-slate-600">
               {t('auth.loginSubtitle')}
             </p>
           </div>
@@ -108,7 +108,7 @@ export default function Login() {
 
             {/* ── Username ── */}
             <div>
-              <label htmlFor="username" className="block text-sm font-medium text-foreground mb-1.5">
+              <label htmlFor="username" className="block text-sm font-medium text-slate-700 mb-1.5">
                 {t('auth.username')}
               </label>
               <input
@@ -134,7 +134,7 @@ export default function Login() {
 
             {/* ── Password ── */}
             <div>
-              <label htmlFor="password" className="block text-sm font-medium text-foreground mb-1.5">
+              <label htmlFor="password" className="block text-sm font-medium text-slate-700 mb-1.5">
                 {t('auth.password')}
               </label>
               <input
@@ -171,7 +171,7 @@ export default function Login() {
             </button>
           </form>
 
-          <p className="mt-8 text-sm text-center text-muted">
+          <p className="mt-8 text-sm text-center text-slate-500">
             {t('auth.noAccount')}{' '}
             <Link to="/signup" className="font-medium text-primary hover:text-primary-hover transition-colors">
               {t('auth.signupLink')}
