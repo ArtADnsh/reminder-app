@@ -141,11 +141,14 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
 class SignUpView(CreateAPIView):
     """Register a new user and send OTP for email verification.
 
-    Handles three cases for the email:
-    1. Active user exists → reject (already registered).
-    2. Inactive user exists → update credentials, reset OTP, resend email.
-    3. No user exists → create new inactive user + OTP.
+    Handles dangling unverified accounts for both email and username:
+    - Active email   → reject ("already registered")
+    - Active username → reject ("already taken")
+    - Inactive username held by a *different* user → delete that abandoned account
+    - Inactive email  → update that user's credentials, reset OTP
+    - Brand new email → create fresh inactive user + OTP
     """
+
     queryset = User.objects.all()
     permission_classes = [AllowAny]
     serializer_class = SignUpSerializer
@@ -159,19 +162,38 @@ class SignUpView(CreateAPIView):
         password = serializer.validated_data['password']
 
         with transaction.atomic():
-            existing_user = User.objects.filter(email__iexact=email).first()
+            # --- Phase 1: look up existing accounts by email and by username ---
+            email_user = User.objects.filter(email__iexact=email).first()
+            username_user = User.objects.filter(username=username).first()
 
-            if existing_user is not None and existing_user.is_active:
+            # --- Phase 2: reject hard blockers (active accounts) ---
+            if email_user is not None and email_user.is_active:
                 return Response(
                     {"detail": "This email is already registered."},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
-            if existing_user is not None and not existing_user.is_active:
-                existing_user.username = username
-                existing_user.set_password(password)
-                existing_user.save(update_fields=['username', 'password'])
-                user = existing_user
+            if username_user is not None and username_user.is_active:
+                return Response(
+                    {"detail": "This username is already taken."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            # --- Phase 3: clean up orphaned inactive accounts holding the username ---
+            if (
+                username_user is not None
+                and not username_user.is_active
+                and (email_user is None or username_user.pk != email_user.pk)
+            ):
+                OTPVerification.objects.filter(user=username_user).delete()
+                username_user.delete()
+
+            # --- Phase 4: create or resume the account ---
+            if email_user is not None and not email_user.is_active:
+                email_user.username = username
+                email_user.set_password(password)
+                email_user.save(update_fields=['username', 'password'])
+                user = email_user
                 action_label = 'resumed'
             else:
                 user = User.objects.create_user(
@@ -182,6 +204,7 @@ class SignUpView(CreateAPIView):
                 )
                 action_label = 'created'
 
+            # --- Phase 5: issue (or refresh) OTP ---
             code = OTPVerification.generate_code()
             OTPVerification.objects.update_or_create(
                 user=user,
