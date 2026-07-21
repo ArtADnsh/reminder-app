@@ -14,7 +14,10 @@ from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
 from django.contrib.auth import get_user_model
+from django.core.mail import send_mail
 from django.db import transaction
+from django.template.loader import render_to_string
+from django.utils.html import strip_tags
 from django.utils import timezone
 from django.conf import settings as django_settings
 
@@ -198,12 +201,15 @@ class SignUpView(CreateAPIView):
 
     @staticmethod
     def _send_otp_email(email, code):
-        from django.core.mail import send_mail
+        html_message = render_to_string('otp_email.html', {'otp': code})
+        plain_message = strip_tags(html_message)
+
         send_mail(
-            subject='Your verification code',
-            message=f'Your 6-digit verification code is: {code}\n\nThis code expires in 15 minutes.',
+            subject='کد تأیید حساب کاربری',
+            message=plain_message,
             from_email=None,
             recipient_list=[email],
+            html_message=html_message,
             fail_silently=False,
         )
 
