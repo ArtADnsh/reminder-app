@@ -14,6 +14,7 @@ from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
 from django.contrib.auth import get_user_model
+from django.db import transaction
 from django.utils import timezone
 from django.conf import settings as django_settings
 
@@ -135,7 +136,13 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
 
 
 class SignUpView(CreateAPIView):
-    """Register a new user and send OTP for email verification."""
+    """Register a new user and send OTP for email verification.
+
+    Handles three cases for the email:
+    1. Active user exists → reject (already registered).
+    2. Inactive user exists → update credentials, reset OTP, resend email.
+    3. No user exists → create new inactive user + OTP.
+    """
     queryset = User.objects.all()
     permission_classes = [AllowAny]
     serializer_class = SignUpSerializer
@@ -143,17 +150,46 @@ class SignUpView(CreateAPIView):
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        user = serializer.save()
 
-        code = OTPVerification.generate_code()
-        OTPVerification.objects.create(user=user, code=code)
+        email = serializer.validated_data['email']
+        username = serializer.validated_data['username']
+        password = serializer.validated_data['password']
+
+        with transaction.atomic():
+            existing_user = User.objects.filter(email__iexact=email).first()
+
+            if existing_user is not None and existing_user.is_active:
+                return Response(
+                    {"detail": "This email is already registered."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            if existing_user is not None and not existing_user.is_active:
+                existing_user.username = username
+                existing_user.set_password(password)
+                existing_user.save(update_fields=['username', 'password'])
+                user = existing_user
+                action_label = 'resumed'
+            else:
+                user = User.objects.create_user(
+                    username=username,
+                    email=email,
+                    password=password,
+                    is_active=False,
+                )
+                action_label = 'created'
+
+            code = OTPVerification.generate_code()
+            OTPVerification.objects.update_or_create(
+                user=user,
+                defaults={'code': code},
+            )
 
         self._send_otp_email(user.email, code)
 
         logger.info(
-            'User signup successful: user_id=%s username=%s',
-            user.id,
-            user.username,
+            'User signup %s: user_id=%s username=%s',
+            action_label, user.id, user.username,
         )
         return Response(
             {"detail": "Account created. Please verify your email with the OTP sent."},
