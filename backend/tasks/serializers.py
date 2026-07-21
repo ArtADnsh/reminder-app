@@ -4,7 +4,7 @@ from django.contrib.auth import get_user_model
 from datetime import timedelta
 from django.contrib.auth.password_validation import validate_password
 
-from .models import Task, Notification, WebPushSubscription, Category
+from .models import Task, Notification, WebPushSubscription, Category, OTPVerification
 
 User = get_user_model()
 
@@ -130,7 +130,6 @@ class TaskSerializer(serializers.ModelSerializer):
 
 
 class SignUpSerializer(serializers.ModelSerializer):
-    # پسورد را write_only می‌کنیم تا در پاسخ JSON برگشت داده نشود
     password = serializers.CharField(write_only=True, required=True, validators=[validate_password])
     email = serializers.EmailField(required=True)
 
@@ -138,14 +137,28 @@ class SignUpSerializer(serializers.ModelSerializer):
         model = User
         fields = ('username', 'email', 'password')
 
+    def validate_email(self, value):
+        if User.objects.filter(email__iexact=value).exists():
+            raise serializers.ValidationError("A user with this email already exists.")
+        return value
+
     def create(self, validated_data):
-        # ساخت کاربر با پسورد هش‌شده استاندارد
         user = User.objects.create_user(
             username=validated_data['username'],
             email=validated_data['email'],
-            password=validated_data['password']
+            password=validated_data['password'],
+            is_active=False,
         )
         return user
+
+
+class ResendOTPSerializer(serializers.Serializer):
+    email = serializers.EmailField(required=True)
+
+
+class VerifyOTPSerializer(serializers.Serializer):
+    email = serializers.EmailField(required=True)
+    otp = serializers.CharField(min_length=6, max_length=6, required=True)
 
 
 class UserProfileSerializer(serializers.ModelSerializer):

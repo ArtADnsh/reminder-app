@@ -205,6 +205,20 @@
     "usernameRequired": "Username is required.",
     "emailRequired": "Email address is required.",
     "passwordRequired": "Password is required.",
-    "confirmPasswordRequired": "Please confirm your password."
+    "confirmPasswordRequired": "Please confirm your password.",
+    "otpTitle": "Verify Your Email",
+    "otpSubtitle": "We sent a 6-digit code to",
+    "otpDigit": "Digit",
+    "otpVerifyBtn": "Verify Account",
+    "otpVerifying": "Verifying...",
+    "otpResendBtn": "Resend Code",
+    "otpExpires": "Code expires in",
+    "otpBack": "Back to registration",
+    "otpSent": "Verification code sent! Please check your email.",
+    "otpResent": "A new code was sent to your email.",
+    "otpResendError": "Failed to resend code. Please try again.",
+    "otpVerifySuccess": "Email verified! Welcome aboard 🎉",
+    "otpInvalid": "Invalid or expired OTP code.",
+    "otpIncomplete": "Please enter all 6 digits."
   }
 }

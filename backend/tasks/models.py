@@ -1,9 +1,11 @@
+import secrets
 import uuid
 from datetime import timedelta
 
 from dateutil.relativedelta import relativedelta
 from django.db import models
 from django.contrib.auth import get_user_model
+from django.utils import timezone
 
 User = get_user_model()
 
@@ -130,3 +132,27 @@ class TelegramConnection(models.Model):
 
     def __str__(self):
         return f'Telegram({self.user.username} -> {self.chat_id or "unlinked"})'
+
+
+class OTPVerification(models.Model):
+    OTP_LENGTH = 6
+    OTP_EXPIRY_MINUTES = 15
+
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='otp_verification')
+    code = models.CharField(max_length=OTP_LENGTH)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'OTP Verification'
+        verbose_name_plural = 'OTP Verifications'
+
+    def __str__(self):
+        return f'OTP({self.user.email})'
+
+    @classmethod
+    def generate_code(cls):
+        return ''.join(secrets.choice('0123456789') for _ in range(cls.OTP_LENGTH))
+
+    @property
+    def is_expired(self):
+        return timezone.now() > self.created_at + timedelta(minutes=self.OTP_EXPIRY_MINUTES)

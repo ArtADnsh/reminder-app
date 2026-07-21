@@ -1,7 +1,12 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from rest_framework_simplejwt.views import TokenRefreshView
-from .views import TaskViewSet, SignUpView, LoginView, LogoutView, UserProfileView, ChangePasswordView, NotificationViewSet, WebPushSubscribeView, GetTelegramLinkView, CategoryViewSet
+from .views import (
+    TaskViewSet, SignUpView, LoginView, LogoutView,
+    UserProfileView, ChangePasswordView, NotificationViewSet,
+    WebPushSubscribeView, GetTelegramLinkView, CategoryViewSet,
+    ResendOTPView, VerifyOTPView,
+)
 
 
 router = DefaultRouter()
@@ -11,6 +16,8 @@ router.register(r'categories', CategoryViewSet, basename='category')
 
 urlpatterns = [
     path('auth/signup/', SignUpView.as_view(), name='api_signup'),
+    path('auth/verify-otp/', VerifyOTPView.as_view(), name='api_verify_otp'),
+    path('auth/resend-otp/', ResendOTPView.as_view(), name='api_resend_otp'),
     path('auth/login/', LoginView.as_view(), name='api_login'),
     path('auth/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     path('auth/logout/', LogoutView.as_view(), name='logout'),

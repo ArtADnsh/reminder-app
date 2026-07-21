@@ -17,8 +17,13 @@ from django.contrib.auth import get_user_model
 from django.utils import timezone
 from django.conf import settings as django_settings
 
-from .models import Task, Notification, WebPushSubscription, TelegramConnection, Category
-from .serializers import TaskSerializer, SignUpSerializer, UserProfileSerializer, ChangePasswordSerializer, NotificationSerializer, WebPushSubscriptionSerializer, CategorySerializer
+from .models import Task, Notification, WebPushSubscription, TelegramConnection, Category, OTPVerification
+from .serializers import (
+    TaskSerializer, SignUpSerializer, UserProfileSerializer,
+    ChangePasswordSerializer, NotificationSerializer,
+    WebPushSubscriptionSerializer, CategorySerializer,
+    ResendOTPSerializer, VerifyOTPSerializer,
+)
 
 User = get_user_model()
 logger = logging.getLogger(__name__)
@@ -115,15 +120,14 @@ class TaskViewSet(ModelViewSet):
 # 2. Authentication Views (CBVs)
 # ==========================================
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
-    """
-    سفارشی‌سازی دیتای بازگشتی در هنگام لاگین.
-    به طور پیش‌فرض فقط توکن‌ها برمی‌گردند، اما ما اطلاعات پایه کاربر را هم اضافه می‌کنیم.
-    """
-
     def validate(self, attrs):
         data = super().validate(attrs)
 
-        # اضافه کردن اطلاعات کاربر به پاسخ JSON لاگین
+        if not self.user.is_active:
+            raise serializers.ValidationError(
+                "Email not verified. Please verify your account first."
+            )
+
         data['username'] = self.user.username
         data['email'] = self.user.email
         data['user_id'] = self.user.id
@@ -131,22 +135,145 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
 
 
 class SignUpView(CreateAPIView):
-    """
-    ثبت‌نام کاربر جدید
-    استفاده از CreateAPIView تمام منطق اعتبارسنجی، ذخیره و ارسال پاسخ ۲۰۱ را
-    به صورت خودکار و پشت صحنه انجام می‌دهد.
-    """
+    """Register a new user and send OTP for email verification."""
     queryset = User.objects.all()
     permission_classes = [AllowAny]
     serializer_class = SignUpSerializer
 
-    def perform_create(self, serializer):
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
         user = serializer.save()
+
+        code = OTPVerification.generate_code()
+        OTPVerification.objects.create(user=user, code=code)
+
+        self._send_otp_email(user.email, code)
+
         logger.info(
             'User signup successful: user_id=%s username=%s',
             user.id,
             user.username,
         )
+        return Response(
+            {"detail": "Account created. Please verify your email with the OTP sent."},
+            status=status.HTTP_201_CREATED,
+        )
+
+    @staticmethod
+    def _send_otp_email(email, code):
+        from django.core.mail import send_mail
+        send_mail(
+            subject='Your verification code',
+            message=f'Your 6-digit verification code is: {code}\n\nThis code expires in 15 minutes.',
+            from_email=None,
+            recipient_list=[email],
+            fail_silently=False,
+        )
+
+
+class ResendOTPView(APIView):
+    """Resend the OTP — reuses the existing unexpired code if available."""
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        serializer = ResendOTPSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        email = serializer.validated_data['email']
+
+        try:
+            user = User.objects.get(email__iexact=email)
+        except User.DoesNotExist:
+            return Response(
+                {"detail": "No account found with this email."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if user.is_active:
+            return Response(
+                {"detail": "This account is already verified."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        otp_obj, created = OTPVerification.objects.get_or_create(user=user)
+
+        if not created and otp_obj.is_expired:
+            otp_obj.code = OTPVerification.generate_code()
+            otp_obj.save(update_fields=['code'])
+
+        code = otp_obj.code
+        SignUpView._send_otp_email(user.email, code)
+
+        return Response({"detail": "OTP resent successfully."}, status=status.HTTP_200_OK)
+
+
+class VerifyOTPView(APIView):
+    """Verify the OTP, activate the account, and return JWT tokens."""
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        serializer = VerifyOTPSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        email = serializer.validated_data['email']
+        otp_code = serializer.validated_data['otp']
+
+        try:
+            user = User.objects.get(email__iexact=email)
+        except User.DoesNotExist:
+            return Response(
+                {"detail": "No account found with this email."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if user.is_active:
+            return Response(
+                {"detail": "This account is already verified."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            otp_obj = OTPVerification.objects.get(user=user)
+        except OTPVerification.DoesNotExist:
+            return Response(
+                {"detail": "No OTP found. Please request a new one."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if otp_obj.is_expired:
+            otp_obj.delete()
+            return Response(
+                {"detail": "OTP has expired. Please request a new one."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if otp_obj.code != otp_code:
+            return Response(
+                {"detail": "Invalid OTP code."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        user.is_active = True
+        user.save(update_fields=['is_active'])
+        otp_obj.delete()
+
+        refresh = RefreshToken.for_user(user)
+
+        logger.info('User verified: user_id=%s email=%s', user.id, user.email)
+
+        return Response({
+            "detail": "Email verified successfully.",
+            "tokens": {
+                "access": str(refresh.access_token),
+                "refresh": str(refresh),
+            },
+            "user": {
+                "id": user.id,
+                "username": user.username,
+                "email": user.email,
+            },
+        }, status=status.HTTP_200_OK)
 
 
 class LoginView(TokenObtainPairView):

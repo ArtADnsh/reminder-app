@@ -205,6 +205,20 @@
     "usernameRequired": "نام کاربری الزامی است.",
     "emailRequired": "آدرس ایمیل الزامی است.",
     "passwordRequired": "رمز عبور الزامی است.",
-    "confirmPasswordRequired": "لطفاً رمز عبور خود را تکرار کنید."
+    "confirmPasswordRequired": "لطفاً رمز عبور خود را تکرار کنید.",
+    "otpTitle": "تأیید ایمیل",
+    "otpSubtitle": "کد ۶ رقمی به این آدرس ارسال شد:",
+    "otpDigit": "رقم",
+    "otpVerifyBtn": "تأیید حساب",
+    "otpVerifying": "در حال تأیید...",
+    "otpResendBtn": "ارسال مجدد کد",
+    "otpExpires": "انقضای کد تا:",
+    "otpBack": "بازگشت به ثبت‌نام",
+    "otpSent": "کد تأیید ارسال شد! لطفاً ایمیل خود را بررسی کنید.",
+    "otpResent": "کد جدیدی به ایمیل شما ارسال شد.",
+    "otpResendError": "ارسال مجدد کد ناموفق بود. دوباره تلاش کنید.",
+    "otpVerifySuccess": "ایمیل تأیید شد! خوش آمدید 🎉",
+    "otpInvalid": "کد واردشده نامعتبر یا منقضی شده است.",
+    "otpIncomplete": "لطفاً همه ۶ رقم را وارد کنید."
   }
 }
