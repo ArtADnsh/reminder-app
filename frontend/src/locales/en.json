@@ -201,6 +201,10 @@
     "welcomeBack": "Welcome back, {{username}}!",
     "signupSuccess": "Registration successful! Logging in...",
     "switchToEn": "Switch to English",
-    "switchToFa": "تغییر به فارسی"
+    "switchToFa": "تغییر به فارسی",
+    "usernameRequired": "Username is required.",
+    "emailRequired": "Email address is required.",
+    "passwordRequired": "Password is required.",
+    "confirmPasswordRequired": "Please confirm your password."
   }
 }

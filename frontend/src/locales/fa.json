@@ -201,6 +201,10 @@
     "welcomeBack": "خوش آمدی ، {{username}}!",
     "signupSuccess": "ثبت‌نام با موفقیت انجام شد! در حال ورود...",
     "switchToEn": "Switch to English",
-    "switchToFa": "تغییر به فارسی"
+    "switchToFa": "تغییر به فارسی",
+    "usernameRequired": "نام کاربری الزامی است.",
+    "emailRequired": "آدرس ایمیل الزامی است.",
+    "passwordRequired": "رمز عبور الزامی است.",
+    "confirmPasswordRequired": "لطفاً رمز عبور خود را تکرار کنید."
   }
 }
