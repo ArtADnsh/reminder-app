@@ -24,7 +24,7 @@ COPY nginx.conf /etc/nginx/conf.d/default.conf
 # Copy static assets from build stage to nginx web root
 COPY --from=builder /app/dist /usr/share/nginx/html
 
-# Expose HTTP port
-EXPOSE 80
+# Expose HTTP and HTTPS ports
+EXPOSE 80 443
 
 CMD ["nginx", "-g", "daemon off;"]

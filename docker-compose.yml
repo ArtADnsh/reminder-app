@@ -127,9 +127,11 @@ services:
     restart: always
     ports:
       - "80:80"
+      - "443:443"
     volumes:
       - static_volume:/usr/share/nginx/html/static
       - media_volume:/usr/share/nginx/html/media
+      - ./frontend/ssl:/etc/nginx/ssl:ro
     networks:
       - app_network
     depends_on:

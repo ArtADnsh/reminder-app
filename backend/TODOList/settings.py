@@ -208,8 +208,19 @@ CORS_ALLOWED_ORIGINS = [
     'http://localhost:5173',
     'http://127.0.0.1',
     'http://127.0.0.1:8000',
+    'https://taskyad.ir',
+    'https://www.taskyad.ir',
 ]
 CORS_ALLOW_CREDENTIALS = True
+
+CSRF_TRUSTED_ORIGINS = [
+    'https://taskyad.ir',
+    'https://www.taskyad.ir',
+]
+
+# Tell Django that the original request was HTTPS, even though Nginx
+# forwards it as plain HTTP to the ASGI container.
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
 # Security headers
 SECURE_BROWSER_XSS_FILTER = True
