@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>یادآوری تسک</title>
+</head>
+<body style="margin:0; padding:0; background-color:#f1f5f9; font-family:Tahoma, Arial, sans-serif;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#f1f5f9; min-height:100vh;">
+        <tr>
+            <td align="center" style="padding:40px 16px;">
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:480px; background-color:#ffffff; border-radius:16px; box-shadow:0 4px 24px rgba(0,0,0,0.08); overflow:hidden;">
+                    <tr>
+                        <td style="height:4px; background:linear-gradient(90deg,#3b82f6,#6366f1);"></td>
+                    </tr>
+                    <tr>
+                        <td style="padding:40px 32px 32px; text-align:center;">
+                            <p style="margin:0 0 8px; font-size:14px; color:#94a3b8; font-weight:400;">یادآوری تسک‌یاد</p>
+                            <h1 style="margin:0 0 16px; font-size:22px; color:#1e293b; font-weight:700;">سلام {{ user_name }}!</h1>
+                            <p style="margin:0 0 28px; font-size:15px; color:#475569; line-height:1.8;">
+                                وقتشه که به یکی از کارهات برسی. جزئیات این تسک در ادامه برات نوشته شده:
+                            </p>
+                            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 auto 28px; text-align: right; direction: rtl;">
+                                <tr>
+                                    <td style="background-color:#eff6ff; border-right:4px solid #3b82f6; border-radius:8px; padding:20px;">
+                                        <h2 style="margin:0 0 12px; font-size:18px; color:#1e293b;">{{ task_title }}</h2>
+                                        <p style="margin:0 0 8px; font-size:14px; color:#475569;">
+                                            <strong style="color:#64748b;">زمان:</strong> {{ due_date }}
+                                        </p>
+                                        <p style="margin:0; font-size:14px; color:#475569;">
+                                            <strong style="color:#64748b;">توضیحات:</strong> {{ task_desc }}
+                                        </p>
+                                    </td>
+                                </tr>
+                            </table>
+                            <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 auto 28px;">
+                                <tr>
+                                    <td align="center" style="background-color:#3b82f6; border-radius:8px;">
+                                        <a href="{{ task_url }}" target="_blank" style="display:inline-block; padding:14px 32px; font-size:15px; color:#ffffff; text-decoration:none; font-weight:700; letter-spacing:0.5px;">مشاهده در سایت</a>
+                                    </td>
+                                </tr>
+                            </table>
+                            <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+                                <tr>
+                                    <td style="border-top:1px solid #e2e8f0; font-size:0; line-height:0;">&nbsp;</td>
+                                </tr>
+                            </table>
+                            <p style="margin:20px 0 0; font-size:13px; color:#94a3b8; line-height:1.7;">
+                                برای مدیریت یادآوری‌ها و ویرایش کارهای خود، همیشه می‌توانید به پنل کاربری‌تان مراجعه کنید.
+                            </p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding:20px 32px; background-color:#f8fafc; border-top:1px solid #f1f5f9; text-align:center;">
+                            <p style="margin:0; font-size:12px; color:#94a3b8; line-height:1.6;">
+                                این ایمیل به صورت خودکار توسط سیستم ارسال شده است.
+                                <br>
+                                <a href="https://taskyad.ir" style="color:#3b82f6; text-decoration:none;">TaskYad.ir</a>
+                            </p>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>

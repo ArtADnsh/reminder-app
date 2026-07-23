@@ -6,8 +6,10 @@ from asgiref.sync import async_to_sync
 from celery import shared_task
 from channels.layers import get_channel_layer
 from django.conf import settings as django_settings
-from django.core.mail import send_mail
+from django.core.mail import EmailMultiAlternatives
+from django.template.loader import render_to_string
 from django.utils import timezone
+from django.utils.html import strip_tags
 from pywebpush import webpush, WebPushException
 
 from .models import Task, Notification, WebPushSubscription
@@ -19,12 +21,30 @@ logger = logging.getLogger(__name__)
 def _send_reminder(task):
     """Send email, WebSocket, Web Push notification, and persist a Notification record."""
     user = task.user
-    subject = f'Task Reminder: {task.title}'
-    message = f'This is a reminder to complete your task: {task.title}'
+    subject = f'یادآوری تسک: {task.title}'
+
+    # Build context for the HTML email template
+    context = {
+        'user_name': user.get_full_name() or user.username,
+        'task_title': task.title,
+        'due_date': task.first_reminder.strftime('%Y-%m-%d %H:%M') if task.first_reminder else 'نامشخص',
+        'task_desc': task.description or 'بدون توضیحات',
+        'task_url': f'{django_settings.FRONTEND_URL}/tasks/{task.id}',
+    }
 
     # 1. Try sending the Email (Don't let failures block other steps)
     try:
-        send_mail(subject, message, django_settings.EMAIL_HOST_USER, [user.email])
+        html_content = render_to_string('emails/reminder_email.html', context)
+        text_content = strip_tags(html_content)
+
+        email = EmailMultiAlternatives(
+            subject=subject,
+            body=text_content,
+            from_email=django_settings.EMAIL_HOST_USER,
+            to=[user.email],
+        )
+        email.attach_alternative(html_content, 'text/html')
+        email.send(fail_silently=False)
         logger.info('Reminder email sent: task_id=%s recipient=%s', task.id, user.email)
     except Exception:
         logger.error('Failed to send reminder email: task_id=%s recipient=%s', task.id, user.email, exc_info=True)
@@ -65,7 +85,7 @@ def _send_reminder(task):
         
         if telegram_conn and telegram_conn.chat_id:
             logger.info('Attempting to send Telegram to chat_id=%s', telegram_conn.chat_id)
-            send_telegram_notification(telegram_conn.chat_id, message)
+            send_telegram_notification(telegram_conn.chat_id, f'یادآوری تسک: {task.title}')
             logger.info('Telegram notification sent successfully!')
         else:
             logger.warning('Telegram SKIPPED for user %s: No TelegramConnection found or chat_id is NULL', user.id)
