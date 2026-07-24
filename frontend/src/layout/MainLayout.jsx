@@ -33,12 +33,12 @@ export default function MainLayout() {
     return () => document.removeEventListener('mousedown', onClick);
   }, []);
 
-  // Close mobile sidebar when language switches (RTL↔LTR direction flip)
+  // Close mobile sidebar and reset all overlays when language switches
   useEffect(() => {
-    const handleClose = () => setIsMobileOpen(false);
-    window.addEventListener('close-mobile-sidebar', handleClose);
-    return () => window.removeEventListener('close-mobile-sidebar', handleClose);
-  }, []);
+    setIsMobileOpen(false);
+    setIsNotifOpen(false);
+    setIsProfileOpen(false);
+  }, [i18n.language]);
 
   const menu = [
     { name: t('sidebar.dashboard'), path: '/', icon: LayoutDashboard },
@@ -200,7 +200,7 @@ export default function MainLayout() {
                 {isNotifOpen && (
                   <div className="fixed top-[75px] start-4 end-4 w-auto sm:absolute sm:top-full sm:mt-3 sm:end-0 sm:start-auto sm:w-96 
                                   bg-white/90 backdrop-blur-xl border border-white/60 shadow-2xl rounded-2xl z-50 overflow-hidden 
-                                  flex flex-col transform origin-top-right animate-in fade-in zoom-in-95 duration-200 animate-dropdown">
+                                  flex flex-col transform origin-top-right rtl:origin-top-left animate-in fade-in zoom-in-95 duration-200 animate-dropdown">
                     <div className="px-5 py-4 border-b border-white/50 bg-white/30 flex justify-between items-center">
                       <span className="font-semibold text-sm text-slate-800">{t('layout.notifications')}</span>
                     </div>
@@ -268,7 +268,7 @@ export default function MainLayout() {
                 </div>
                 {isProfileOpen && (
                   <div className="absolute end-0 mt-3 w-56 bg-white/90 backdrop-blur-xl border border-white/60 shadow-2xl rounded-2xl z-50 overflow-hidden 
-                                  flex flex-col transform origin-top-right animate-in fade-in zoom-in-95 duration-200 animate-dropdown">
+                                  flex flex-col transform origin-top-right rtl:origin-top-left animate-in fade-in zoom-in-95 duration-200 animate-dropdown">
                     <div className="px-4 py-3 border-b border-white/50 bg-white/30">
                       <p className="text-sm font-bold text-slate-800 truncate">{user?.username}</p>
                       <p className="text-xs text-slate-500 truncate mt-0.5" dir="ltr">{user?.email}</p>

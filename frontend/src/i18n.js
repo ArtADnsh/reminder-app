@@ -13,8 +13,11 @@ i18n
       en: { translation: en },
       fa: { translation: fa }
     },
-    lng: 'fa',
-    fallbackLng: 'en',
+    fallbackLng: 'fa', // Default fallback if no language is detected
+    detection: {
+      order: ['localStorage', 'navigator'],
+      caches: ['localStorage'], // Saves the user's choice in localStorage
+    },
     interpolation: { escapeValue: false }
   });
 
