@@ -323,15 +323,11 @@ class VerifyOTPView(APIView):
 
         return Response({
             "detail": "Email verified successfully.",
-            "tokens": {
-                "access": str(refresh.access_token),
-                "refresh": str(refresh),
-            },
-            "user": {
-                "id": user.id,
-                "username": user.username,
-                "email": user.email,
-            },
+            "access": str(refresh.access_token),
+            "refresh": str(refresh),
+            "user_id": user.id,
+            "username": user.username,
+            "email": user.email,
         }, status=status.HTTP_200_OK)
 
 
