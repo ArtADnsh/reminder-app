@@ -63,7 +63,7 @@ export default function MainLayout() {
             backdrop-blur-2xl text-slate-800
             border-e border-white/60 shadow-[0_8px_32px_0_rgba(31,38,135,0.05)]
             flex flex-col overflow-hidden whitespace-nowrap transition-all duration-300 ease-in-out
-            ${isMobileOpen ? 'translate-x-0' : 'translate-x-full rtl:translate-x-full ltr:-translate-x-full'} md:translate-x-0 md:rtl:translate-x-0 md:ltr:translate-x-0
+            ${isMobileOpen ? 'translate-x-0' : '-translate-x-full rtl:translate-x-full'} md:translate-x-0
             ${isCollapsed ? 'md:w-16' : 'md:w-64'} w-64
           `}
           style={{
