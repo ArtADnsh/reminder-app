@@ -10,7 +10,7 @@ import { useWebsocketNotifications } from '../hooks/useWebsocketNotifications';
 import sidebarBg from '../assets/sidebar-bg.jpeg';
 
 export default function MainLayout() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { user, logout } = useContext(AuthContext);
   const location = useLocation();
   const [isMobileOpen, setIsMobileOpen] = useState(false);
@@ -32,6 +32,11 @@ export default function MainLayout() {
     document.addEventListener('mousedown', onClick);
     return () => document.removeEventListener('mousedown', onClick);
   }, []);
+
+  // Close mobile sidebar automatically upon language change
+  useEffect(() => {
+    setIsMobileOpen(false);
+  }, [i18n.language]);
 
   const menu = [
     { name: t('sidebar.dashboard'), path: '/', icon: LayoutDashboard },
