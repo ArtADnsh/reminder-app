@@ -118,7 +118,7 @@ export default function Login() {
                 dir="ltr"
                 aria-invalid={!!errors.username}
                 aria-describedby={errors.username ? 'err-username' : undefined}
-                className={`${BASE_INPUT} ${errors.username ? ERR_INPUT : OK_INPUT}`}
+                className={`${BASE_INPUT} ${errors.username ? ERR_INPUT : OK_INPUT} text-right`}
                 placeholder={t('auth.usernamePlaceholder')}
                 value={username}
                 onChange={(e) => { setUsername(e.target.value); clearErr('username'); }}

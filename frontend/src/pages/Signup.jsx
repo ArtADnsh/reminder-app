@@ -369,7 +369,7 @@ function SignupStep({ onSuccess }) {
             id="su-username" type="text" autoComplete="username" dir="ltr"
             aria-invalid={!!errors.username}
             aria-describedby={errors.username ? 'err-su-username' : undefined}
-            className={`${BASE_INPUT} ${errors.username ? ERR_INPUT : OK_INPUT}`}
+            className={`${BASE_INPUT} ${errors.username ? ERR_INPUT : OK_INPUT} text-right`}
             placeholder={t('auth.signupUsernamePlaceholder')}
             value={username}
             onChange={(e) => { setUsername(e.target.value); clearErr('username'); }}
