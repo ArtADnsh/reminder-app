@@ -51,6 +51,16 @@ export default function Dashboard() {
     };
   }, []);
 
+  // Show push banner only when browser supports it and user hasn't subscribed yet
+  useEffect(() => {
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+    navigator.serviceWorker.ready.then((reg) => {
+      reg.pushManager.getSubscription().then((sub) => {
+        if (!sub) setShowPushBanner(true);
+      });
+    });
+  }, []);
+
   const openModal = (task = null, mode = 'edit') => {
     if (task && task.nativeEvent) task = null;
     setTaskToEdit(task);
@@ -189,7 +199,10 @@ export default function Dashboard() {
         <Card className="flex items-center gap-3 bg-primary-soft border-primary/20">
           <Bell className="w-5 h-5 text-primary" />
           <div className="flex-1 text-sm">{t('dashboard.enablePushText')}</div>
-          <Button size="sm" onClick={subscribeToWebPush}>{t('dashboard.enablePushBtn')}</Button>
+          <Button size="sm" onClick={async () => {
+            const result = await subscribeToWebPush();
+            if (result) setShowPushBanner(false);
+          }}>{t('dashboard.enablePushBtn')}</Button>
         </Card>
       )}
 
