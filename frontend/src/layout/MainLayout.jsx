@@ -61,11 +61,11 @@ export default function MainLayout() {
         {/* Sidebar */}
         <aside
           className={`
-            fixed md:static inset-y-0 start-0 z-50
+            fixed md:static inset-y-0 z-50
             backdrop-blur-2xl text-slate-800
             border-e border-white/60 shadow-[0_8px_32px_0_rgba(31,38,135,0.05)]
             flex flex-col overflow-hidden whitespace-nowrap transition-all duration-300 ease-in-out
-            ${isMobileOpen ? 'translate-x-0' : 'ltr:-translate-x-full rtl:translate-x-full'} md:ltr:translate-x-0 md:rtl:translate-x-0
+            ${isMobileOpen ? 'start-0' : '-start-64'} md:start-0
             ${isCollapsed ? 'md:w-16' : 'md:w-64'} w-64
           `}
           style={{
