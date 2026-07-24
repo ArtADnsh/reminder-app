@@ -58,7 +58,7 @@ export default function AboutPage() {
             <h3 className="text-lg font-medium text-gray-400 mb-2">{t('about.developer')}</h3>
             <h2 className="text-4xl font-extrabold mb-2 tracking-tight">{t('about.authorName')}</h2>
             <p className="text-primary font-bold text-xl mb-6">{t('about.softwareEngineer')}</p>
-            <p className="text-gray-300 max-w-md leading-relaxed text-sm">
+            <p className="text-gray-300 max-w-md leading-relaxed text-sm text-right">
               {t('about.developerDesc')}
             </p>
           </div>
