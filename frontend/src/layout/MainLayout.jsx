@@ -33,10 +33,12 @@ export default function MainLayout() {
     return () => document.removeEventListener('mousedown', onClick);
   }, []);
 
-  // Close mobile sidebar automatically upon language change
+  // Close mobile sidebar when language switches (RTL↔LTR direction flip)
   useEffect(() => {
-    setIsMobileOpen(false);
-  }, [i18n.language]);
+    const handleClose = () => setIsMobileOpen(false);
+    window.addEventListener('close-mobile-sidebar', handleClose);
+    return () => window.removeEventListener('close-mobile-sidebar', handleClose);
+  }, []);
 
   const menu = [
     { name: t('sidebar.dashboard'), path: '/', icon: LayoutDashboard },

@@ -23,6 +23,7 @@ export default function Profile() {
   }, []);
 
   const changeLanguage = (lng) => {
+    window.dispatchEvent(new Event('close-mobile-sidebar'));
     i18n.changeLanguage(lng);
   };
 

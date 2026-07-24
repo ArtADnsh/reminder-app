@@ -18,6 +18,8 @@ export default function LanguageSwitcher() {
   }, [i18n.language, isFa]);
 
   const toggle = () => {
+    // Close any open mobile sidebar before the direction flip prevents a ghost sidebar
+    window.dispatchEvent(new Event('close-mobile-sidebar'));
     i18n.changeLanguage(isFa ? 'en' : 'fa');
   };
 
