@@ -2688,9 +2688,8 @@ class VerifyOTPViewCoverageTests(TestCase):
         u.refresh_from_db()
         self.assertTrue(u.is_active)
         self.assertFalse(OTPVerification.objects.filter(user=u).exists())
-        self.assertIn('tokens', resp.data)
-        self.assertIn('access', resp.data['tokens'])
-        self.assertIn('refresh', resp.data['tokens'])
+        self.assertIn('access', resp.data)
+        self.assertIn('refresh', resp.data)
 
 
 # =========================================================================
