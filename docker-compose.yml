@@ -127,7 +127,9 @@ services:
     volumes:
       - static_volume:/usr/share/nginx/html/static
       - media_volume:/usr/share/nginx/html/media
-      - ./frontend/ssl:/etc/nginx/ssl:ro
+      - /etc/letsencrypt:/etc/letsencrypt:ro
+      - /etc/letsencrypt/live/taskyad.ir/fullchain.pem:/etc/nginx/ssl/fullchain.pem:ro
+      - /etc/letsencrypt/live/taskyad.ir/privkey.pem:/etc/nginx/ssl/privkey.pem:ro
     networks:
       - app_network
     depends_on:
