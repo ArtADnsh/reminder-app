@@ -3,9 +3,10 @@ import { Outlet, Link, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
   LayoutDashboard, User, Bell, Menu, X, Check, Trash,
-  ChevronLeft, LogOut, Settings, Info,
+  ChevronLeft, LogOut, Settings, Info, Moon, Sun,
 } from 'lucide-react';
 import { AuthContext } from '../context/authContext';
+import { enable as enableDarkMode, disable as disableDarkMode } from 'darkreader';
 import { useWebsocketNotifications } from '../hooks/useWebsocketNotifications';
 import sidebarBg from '../assets/sidebar-bg.jpeg';
 
@@ -19,6 +20,22 @@ export default function MainLayout() {
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const notifRef = useRef(null);
   const profileRef = useRef(null);
+
+  const [isDark, setIsDark] = useState(() => localStorage.getItem('theme') === 'dark');
+
+  useEffect(() => {
+    if (isDark) {
+      enableDarkMode({
+        brightness: 100,
+        contrast: 100,
+        sepia: 0
+      });
+      localStorage.setItem('theme', 'dark');
+    } else {
+      disableDarkMode();
+      localStorage.setItem('theme', 'light');
+    }
+  }, [isDark]);
 
   const token = localStorage.getItem('access_token');
   const { notifications, unreadCount, markAsRead, removeNotification, markAllAsRead } =
@@ -274,7 +291,14 @@ export default function MainLayout() {
                       <p className="text-xs text-slate-500 truncate mt-0.5" dir="ltr">{user?.email}</p>
                     </div>
                     <div className="p-1">
-                      <Link to="/profile" className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 hover:text-primary rounded-xl transition-colors">
+                      <button 
+                        onClick={() => setIsDark(!isDark)}
+                        className="flex items-center gap-2 w-full px-3 py-2 text-sm text-start hover:bg-black/5 dark:hover:bg-white/10 rounded-xl transition-colors"
+                      >
+                        {isDark ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4" />}
+                        <span>{isDark ? 'حالت روز' : 'حالت شب'}</span>
+                      </button>
+                      <Link to="/profile" className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 hover:text-primary rounded-xl transition-colors mt-1">
                         <Settings className="w-4 h-4" /> {t('sidebar.settings')}
                       </Link>
                       <button
