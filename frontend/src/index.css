@@ -177,3 +177,77 @@ h1, h2, h3, h4 {
     width: 380px !important;
   }
 }
+
+/* =========================================
+   Push Notification Button
+   ========================================= */
+.push-notification-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.push-notification-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border-radius: var(--radius-lg);
+  border: 1.5px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-foreground-soft);
+  font-size: 0.8rem;
+  font-family: var(--font-sans);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.push-notification-btn:hover:not(:disabled) {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+  background: var(--color-primary-soft);
+}
+
+.push-notification-btn.push-active {
+  background: var(--color-primary-soft);
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.push-notification-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.push-notification-blocked {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.78rem;
+  color: var(--color-muted);
+  padding: 6px 10px;
+  border-radius: var(--radius-md);
+  background: var(--color-surface-2);
+}
+
+.push-error {
+  font-size: 0.75rem;
+  color: var(--color-danger);
+  margin: 0;
+}
+
+/* Spinner for loading state */
+.push-spinner {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: push-spin 0.7s linear infinite;
+}
+
+@keyframes push-spin {
+  to { transform: rotate(360deg); }
+}

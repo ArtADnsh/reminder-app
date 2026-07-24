@@ -192,8 +192,7 @@ class WebPushSubscriptionSerializer(serializers.Serializer):
         user = self.context['request'].user
         keys = validated_data.pop('keys')
         obj, _ = WebPushSubscription.objects.update_or_create(
-            user=user,
             endpoint=validated_data['endpoint'],
-            defaults={'p256dh': keys['p256dh'], 'auth': keys['auth']},
+            defaults={'user': user, 'p256dh': keys['p256dh'], 'auth': keys['auth']},
         )
         return obj

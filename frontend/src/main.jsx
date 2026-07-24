@@ -7,6 +7,23 @@ import { ToastContainer, Slide } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import './index.css';
 
+// ── Service Worker Registration ──────────────────────────────────────────────
+// ثبت Service Worker پس از لود کامل صفحه انجام می‌شود تا با رندر اولیه
+// رقابت نکند. خطاها به‌صورت آرام log می‌شوند تا برنامه هیچ‌گاه خراب نشود.
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker
+      .register('/sw.js')
+      .then((registration) => {
+        console.info('[SW] Service Worker registered successfully. Scope:', registration.scope);
+      })
+      .catch((error) => {
+        console.error('[SW] Service Worker registration failed:', error);
+      });
+  });
+}
+// ─────────────────────────────────────────────────────────────────────────────
+
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <AuthProvider>

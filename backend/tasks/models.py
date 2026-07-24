@@ -32,14 +32,12 @@ class Notification(models.Model):
 
 class WebPushSubscription(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='webpush_subscriptions')
-    endpoint = models.URLField(max_length=500)
-    p256dh = models.CharField(max_length=100)
-    auth = models.CharField(max_length=100)
+    endpoint = models.URLField(max_length=500, unique=True)
+    p256dh = models.CharField(max_length=255)
+    auth = models.CharField(max_length=255)
 
     class Meta:
-        constraints = [
-            models.UniqueConstraint(fields=['user', 'endpoint'], name='unique_user_endpoint'),
-        ]
+        constraints = []
 
     def __str__(self):
         return f'WebPush({self.user.username} -> {self.endpoint[:50]})'
